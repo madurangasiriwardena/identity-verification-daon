@@ -136,24 +136,24 @@ Add any additional mappings based on the claims your Daon tenant is configured t
 ## Verification Flow
 
 ```
-Application          WSO2 IS              Daon TrustX
-     │                   │                     │
-     │─── INITIATED ─────▶│                     │
-     │                   │─── builds OIDC ─────▶│
+Application            WSO2 IS              Daon TrustX
+     │                    │                      │
+     │─── INITIATED ─────▶│                      │
+     │                    │─── builds OIDC ─────▶│
      │◀── auth URL ───────│    auth URL          │
-     │                   │                     │
-     │─── redirect user ───────────────────────▶│
-     │                   │                     │ (user completes ID&V)
-     │                   │◀─── callback ────────│
-     │                   │    code + state      │
-     │                   │─── exchange code ───▶│
-     │                   │◀─── id_token ────────│
-     │                   │  (verifiedClaims)    │
-     │                   │─── update claims ───▶│ (internal)
-     │◀────────── redirect to callback URL ─────│
-     │                   │                     │
-     │─── check status ──▶│                     │
-     │◀── isVerified ─────│                     │
+     │                    │                      │
+     │────────── redirect user──────────────────▶│
+     │                    │                      │ (user completes ID&V)
+     │                    │◀─── callback ────────│
+     │                    │    code + state      │
+     │                    │─── exchange code ───▶│
+     │                    │◀─── id_token ────────│
+     │                    │  (verifiedClaims)    │
+     │                    │─── update claims ───▶│ (internal)
+     │◀────────── redirect to callback URL ──────│
+     │                    │                      │
+     │─── check status ──▶│                      │
+     │◀── isVerified ─────│                      │
 ```
 
 ---
