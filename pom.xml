@@ -27,6 +27,7 @@
     <modules>
         <module>components/org.wso2.carbon.identity.verification.daon.connector</module>
         <module>components/org.wso2.carbon.identity.verification.daon.api</module>
+        <module>components/org.wso2.carbon.identity.verification.daon.authenticator</module>
     </modules>
 
     <dependencyManagement>
@@ -106,6 +107,11 @@
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
                 <version>${slf4j.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.wso2.carbon.identity.framework</groupId>
+                <artifactId>org.wso2.carbon.identity.application.authentication.framework</artifactId>
+                <version>${carbon.identity.framework.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.wso2.carbon.identity.framework</groupId>
@@ -395,6 +401,8 @@
         <carbon.identity.package.import.version.range>[5.14.67, 8.0.0)</carbon.identity.package.import.version.range>
         <carbon.user.api.imp.pkg.version.range>[1.0.1, 2.0.0)</carbon.user.api.imp.pkg.version.range>
         <identity.verification.package.version.range>[1.0.0, 2.0.0)</identity.verification.package.version.range>
+        <carbon.identity.application.authentication.framework.imp.pkg.version.range>[5.0.0, 8.0.0)
+        </carbon.identity.application.authentication.framework.imp.pkg.version.range>
         <httpcomponents-httpclient.imp.pkg.version.range>[4.5.13.wso2v1,5.0.0)
         </httpcomponents-httpclient.imp.pkg.version.range>
 

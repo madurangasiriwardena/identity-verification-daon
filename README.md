@@ -200,6 +200,8 @@ curl -X POST \
 ]
 ```
 
+> **Note:** `daon_authorization_url` is returned only in this initiation response — it is not persisted to the database.
+
 ### 2. Redirect the User
 
 Redirect the user's browser to the `daon_authorization_url` from the response. The user completes identity verification on the Daon-hosted UI.
@@ -211,15 +213,15 @@ After verification, Daon redirects the browser to:
 GET https://<IS_HOST>:<PORT>/idv/daon/v1/<idvp-id>/callback
     ?code=<authorization_code>
     &state=<uuid>
-    &session_state=<session_state>
 ```
 
 The connector automatically:
 1. Validates the `state` parameter against the stored CSRF token
 2. Exchanges the authorization code for an ID token at the Daon token endpoint
 3. Extracts verified claims from the `verifiedClaims.claims` section of the ID token
-4. Updates each claim's `isVerified` status and stores the verified values
-5. Redirects the user to the configured **Callback URL**
+4. Compares each Daon-returned value against the user's existing profile attribute value
+5. Marks the claim `isVerified = true` only if the values match; sets `daon_verification_status = MISMATCH` otherwise
+6. Redirects the user to the configured **Callback URL**
 
 ### 4. Re-initiate (if needed)
 
@@ -262,26 +264,27 @@ A successfully verified claim returns:
   "claimMetadata": {
     "daon_flow_status": "COMPLETED",
     "daon_verification_status": "VERIFIED",
-    "daon_completed_at": "2026-04-19T08:30:00Z",
-    "daon_session_state": "..."
+    "daon_completed_at": "2026-04-19T08:30:00Z"
   }
 }
 ```
+
+If the value Daon returned does not match the user's profile attribute, `isVerified` will be `false` and `daon_verification_status` will be `MISMATCH`.
 
 ---
 
 ## Claim Metadata Reference
 
-The following metadata keys are stored per claim throughout the verification lifecycle:
+The following metadata keys are persisted per claim:
 
 | Key | Description |
 |---|---|
 | `daon_state` | OIDC state UUID used as CSRF token |
 | `daon_flow_status` | `INITIATED` / `REINITIATED` / `COMPLETED` |
-| `daon_authorization_url` | The OIDC URL returned to the client at initiation |
-| `daon_verification_status` | `VERIFIED` / `FAILED` (set after callback) |
+| `daon_verification_status` | `VERIFIED` / `MISMATCH` / `FAILED` (set after callback) |
 | `daon_completed_at` | ISO-8601 timestamp of callback processing |
-| `daon_session_state` | Session state parameter returned by Daon on callback |
+
+> `daon_authorization_url` is returned transiently in the initiation API response but is not stored in the database.
 
 ---
 

@@ -71,7 +71,6 @@ import static org.wso2.carbon.identity.verification.daon.connector.constants.Dao
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_REINITIATING_DAON_VERIFICATION;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_REINITIATION_NOT_ALLOWED;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_RETRIEVING_CLAIMS_AGAINST_STATE;
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_VERIFICATION_ALREADY_INITIATED;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_VERIFICATION_FLOW_STATUS_NOT_FOUND;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_VERIFICATION_REQUIRED_CLAIMS_NOT_FOUND;
 import static org.wso2.carbon.user.core.constants.UserCoreErrorConstants.ErrorMessages.ERROR_CODE_NON_EXISTING_USER;
@@ -131,24 +130,23 @@ public class DaonIdentityVerifier extends AbstractIdentityVerifier {
         List<IdVClaim> verificationRequiredClaims = getVerificationRequiredClaims(identityVerifierData);
         List<IdVClaim> claimsToUpdate = new ArrayList<>();
 
-        Map<String, String> unverifiedClaimsMap = getUnverifiedClaimsWithValueMap(userId, tenantId, idVProvider,
+        Map<String, String> claimsMap = getClaimsWithValueMap(userId, tenantId, idVProvider,
                 verificationRequiredClaims, claimsToUpdate);
-        if (unverifiedClaimsMap.isEmpty()) {
-            throw new IdentityVerificationClientException(ERROR_VERIFICATION_ALREADY_INITIATED.getCode(),
-                    ERROR_VERIFICATION_ALREADY_INITIATED.getMessage());
-        }
 
         try {
             String state = UUID.randomUUID().toString();
-            List<String> daonClaimNames = new ArrayList<>(unverifiedClaimsMap.keySet());
+            List<String> daonClaimNames = new ArrayList<>(claimsMap.keySet());
             String authorizationUrl = DaonAPIClient.buildAuthorizationUrl(idVProviderConfigProperties, state,
                     daonClaimNames);
 
-            Map<String, Object> metadata = buildInitiatedMetadata(state, authorizationUrl);
-            updateAndStoreClaims(userId, tenantId, idVProvider, verificationRequiredClaims, claimsToUpdate, metadata);
+            Map<String, Object> persistedMetadata = buildInitiatedMetadata(state);
+            updateAndStoreClaims(userId, tenantId, idVProvider, verificationRequiredClaims, claimsToUpdate,
+                    persistedMetadata);
 
+            Map<String, Object> responseMetadata = new HashMap<>(persistedMetadata);
+            responseMetadata.put(DAON_AUTHORIZATION_URL, authorizationUrl);
             for (IdVClaim idVClaim : verificationRequiredClaims) {
-                idVClaim.setMetadata(metadata);
+                idVClaim.setMetadata(responseMetadata);
             }
         } catch (DaonServerException e) {
             throw new IdentityVerificationServerException(ERROR_INITIATING_DAON_VERIFICATION.getCode(),
@@ -188,10 +186,12 @@ public class DaonIdentityVerifier extends AbstractIdentityVerifier {
             for (IdVClaim idVClaim : idVClaims) {
                 Map<String, Object> metadata = idVClaim.getMetadata();
                 metadata.put(DAON_STATE, newState);
-                metadata.put(DAON_AUTHORIZATION_URL, authorizationUrl);
                 metadata.put(DAON_FLOW_STATUS, DaonConstants.VerificationFlowStatus.REINITIATED.getStatus());
                 idVClaim.setMetadata(metadata);
                 updateIdVClaim(userId, idVClaim, tenantId);
+            }
+            for (IdVClaim idVClaim : idVClaims) {
+                idVClaim.getMetadata().put(DAON_AUTHORIZATION_URL, authorizationUrl);
             }
         } catch (DaonServerException e) {
             throw new IdentityVerificationServerException(ERROR_REINITIATING_DAON_VERIFICATION.getCode(),
@@ -281,9 +281,9 @@ public class DaonIdentityVerifier extends AbstractIdentityVerifier {
         throw new IdentityVerificationClientException(errorMessage.getCode(), errorMessage.getMessage());
     }
 
-    private Map<String, String> getUnverifiedClaimsWithValueMap(String userId, int tenantId, IdVProvider idVProvider,
-                                                                  List<IdVClaim> verificationRequiredClaims,
-                                                                  List<IdVClaim> claimsToUpdate)
+    private Map<String, String> getClaimsWithValueMap(String userId, int tenantId, IdVProvider idVProvider,
+                                                        List<IdVClaim> verificationRequiredClaims,
+                                                        List<IdVClaim> claimsToUpdate)
             throws IdentityVerificationException {
 
         Map<String, String> idVProviderClaimWithValueMap = new HashMap<>();
@@ -296,21 +296,22 @@ public class DaonIdentityVerifier extends AbstractIdentityVerifier {
                 IdVClaim existingIdVClaim = DaonIDVDataHolder.getIdentityVerificationManager()
                         .getIdVClaim(userId, claimUri, idVProvider.getIdVProviderUuid(), tenantId);
 
-                if (existingIdVClaim == null || existingIdVClaim.getMetadata() == null
-                        || existingIdVClaim.getMetadata().get(DAON_STATE) == null) {
-                    String claimValue = uniqueIDUserStoreManager.getUserClaimValueWithID(userId, claimUri, null);
-                    if (StringUtils.isEmpty(claimValue)) {
-                        throw new IdentityVerificationClientException(ERROR_CLAIM_VALUE_NOT_EXIST.getCode(),
-                                String.format(ERROR_CLAIM_VALUE_NOT_EXIST.getMessage(), claimUri));
-                    }
-                    if (!idVClaimMap.containsKey(claimUri)) {
-                        throw new IdentityVerificationClientException(ERROR_CLAIM_MAPPING_NOT_FOUND.getCode(),
-                                String.format(ERROR_CLAIM_MAPPING_NOT_FOUND.getMessage(), claimUri));
-                    }
-                    idVProviderClaimWithValueMap.put(idVClaimMap.get(claimUri), claimValue);
+                String claimValue = uniqueIDUserStoreManager.getUserClaimValueWithID(userId, claimUri, null);
+                if (StringUtils.isEmpty(claimValue)) {
+                    throw new IdentityVerificationClientException(ERROR_CLAIM_VALUE_NOT_EXIST.getCode(),
+                            String.format(ERROR_CLAIM_VALUE_NOT_EXIST.getMessage(), claimUri));
                 }
+                if (!idVClaimMap.containsKey(claimUri)) {
+                    throw new IdentityVerificationClientException(ERROR_CLAIM_MAPPING_NOT_FOUND.getCode(),
+                            String.format(ERROR_CLAIM_MAPPING_NOT_FOUND.getMessage(), claimUri));
+                }
+                idVProviderClaimWithValueMap.put(idVClaimMap.get(claimUri), claimValue);
+
                 if (existingIdVClaim != null) {
+                    existingIdVClaim.setClaimValue(claimValue);
                     claimsToUpdate.add(existingIdVClaim);
+                } else {
+                    idVClaim.setClaimValue(claimValue);
                 }
             }
         } catch (UserStoreException e) {
@@ -326,12 +327,11 @@ public class DaonIdentityVerifier extends AbstractIdentityVerifier {
         return idVProviderClaimWithValueMap;
     }
 
-    private Map<String, Object> buildInitiatedMetadata(String state, String authorizationUrl) {
+    private Map<String, Object> buildInitiatedMetadata(String state) {
 
         Map<String, Object> metadata = new HashMap<>();
         metadata.put(DAON_STATE, state);
         metadata.put(DAON_FLOW_STATUS, DaonConstants.VerificationFlowStatus.INITIATED.getStatus());
-        metadata.put(DAON_AUTHORIZATION_URL, authorizationUrl);
         return metadata;
     }
 

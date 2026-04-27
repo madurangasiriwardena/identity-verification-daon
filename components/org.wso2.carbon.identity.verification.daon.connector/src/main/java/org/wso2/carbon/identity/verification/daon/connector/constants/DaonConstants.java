@@ -82,7 +82,6 @@ public class DaonConstants {
      */
     public static final String DAON_STATE = "daon_state";
     public static final String DAON_FLOW_STATUS = "daon_flow_status";
-    public static final String DAON_SESSION_STATE = "daon_session_state";
     public static final String DAON_COMPLETED_AT = "daon_completed_at";
     public static final String DAON_VERIFICATION_STATUS = "daon_verification_status";
     public static final String DAON_AUTHORIZATION_URL = "daon_authorization_url";
@@ -211,7 +210,8 @@ public class DaonConstants {
     public enum DaonVerificationStatus {
 
         VERIFIED("VERIFIED"),
-        FAILED("FAILED");
+        FAILED("FAILED"),
+        MISMATCH("MISMATCH");
 
         private final String status;
 

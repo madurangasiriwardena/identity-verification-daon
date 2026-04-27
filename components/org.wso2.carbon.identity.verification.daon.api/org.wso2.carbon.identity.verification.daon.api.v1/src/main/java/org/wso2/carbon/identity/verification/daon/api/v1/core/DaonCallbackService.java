@@ -59,7 +59,6 @@ import static org.wso2.carbon.identity.verification.daon.api.common.Constants.Er
 import static org.wso2.carbon.identity.verification.daon.api.common.Constants.ErrorMessage.SERVER_ERROR_TOKEN_EXCHANGE;
 import static org.wso2.carbon.identity.verification.daon.api.common.Constants.ErrorMessage.SERVER_ERROR_UPDATING_IDV_CLAIM_VERIFICATION_STATUS;
 import static org.wso2.carbon.identity.verification.daon.api.common.Util.getTenantId;
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ACCESS_TOKEN;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.CLAIMS_PARAM;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.BASE_URL;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.CALLBACK_URL;
@@ -67,7 +66,6 @@ import static org.wso2.carbon.identity.verification.daon.connector.constants.Dao
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.CLIENT_SECRET;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.DAON_COMPLETED_AT;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.DAON_FLOW_STATUS;
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.DAON_SESSION_STATE;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.DAON_STATE;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.DAON_VERIFICATION_STATUS;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.REDIRECT_URI;
@@ -139,12 +137,11 @@ public class DaonCallbackService {
             throw buildServerError(SERVER_ERROR_TOKEN_EXCHANGE, Response.Status.INTERNAL_SERVER_ERROR, e);
         }
 
-        String accessToken = tokenResponse.optString(ACCESS_TOKEN);
         String idToken = tokenResponse.optString(DaonConstants.ID_TOKEN);
 
         JSONObject idTokenClaims = DaonAPIClient.parseIdToken(idToken);
 
-        updateIdVClaims(idVProvider, claims, idTokenClaims, sessionState, tenantId);
+        updateIdVClaims(idVProvider, claims, idTokenClaims, tenantId);
 
         String callbackUrl = configProperties.get(CALLBACK_URL);
         try {
@@ -219,7 +216,7 @@ public class DaonCallbackService {
     }
 
     private void updateIdVClaims(IdVProvider idVProvider, IdVClaim[] claims, JSONObject idTokenClaims,
-                                   String sessionState, int tenantId) {
+                                   int tenantId) {
 
         Map<String, String> claimMappings = idVProvider.getClaimMappings();
         String completedAt = Instant.now().toString();
@@ -242,12 +239,23 @@ public class DaonCallbackService {
             }
 
             boolean verified = false;
+            String verificationStatus = DaonConstants.DaonVerificationStatus.FAILED.getStatus();
             if (daonClaimName != null && verifiedClaimValues != null && verifiedClaimValues.has(daonClaimName)) {
-                verified = true;
-                claim.setClaimValue(verifiedClaimValues.optString(daonClaimName));
-                if (log.isDebugEnabled()) {
-                    log.debug("Claim verified - " + wso2ClaimUri + " = "
-                            + verifiedClaimValues.optString(daonClaimName));
+                String daonValue = verifiedClaimValues.optString(daonClaimName);
+                String profileValue = claim.getClaimValue();
+                if (StringUtils.equalsIgnoreCase(
+                        StringUtils.trimToEmpty(profileValue), StringUtils.trimToEmpty(daonValue))) {
+                    verified = true;
+                    verificationStatus = DaonConstants.DaonVerificationStatus.VERIFIED.getStatus();
+                    if (log.isDebugEnabled()) {
+                        log.debug("Claim verified - " + wso2ClaimUri + " = " + daonValue);
+                    }
+                } else {
+                    verificationStatus = DaonConstants.DaonVerificationStatus.MISMATCH.getStatus();
+                    if (log.isDebugEnabled()) {
+                        log.debug("Claim value mismatch for " + wso2ClaimUri
+                                + " - profile value does not match Daon verified value");
+                    }
                 }
             } else {
                 if (log.isDebugEnabled()) {
@@ -261,12 +269,7 @@ public class DaonCallbackService {
             Map<String, Object> metadata = claim.getMetadata() != null ? claim.getMetadata() : new HashMap<>();
             metadata.put(DAON_FLOW_STATUS, DaonConstants.VerificationFlowStatus.COMPLETED.getStatus());
             metadata.put(DAON_COMPLETED_AT, completedAt);
-            metadata.put(DAON_VERIFICATION_STATUS,
-                    verified ? DaonConstants.DaonVerificationStatus.VERIFIED.getStatus()
-                             : DaonConstants.DaonVerificationStatus.FAILED.getStatus());
-            if (StringUtils.isNotBlank(sessionState)) {
-                metadata.put(DAON_SESSION_STATE, sessionState);
-            }
+            metadata.put(DAON_VERIFICATION_STATUS, verificationStatus);
             claim.setMetadata(metadata);
 
             try {
