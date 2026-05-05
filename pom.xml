@@ -109,8 +109,23 @@
                 <version>${slf4j.version}</version>
             </dependency>
             <dependency>
+                <groupId>org.wso2.carbon.identity.outbound.auth.oidc</groupId>
+                <artifactId>org.wso2.carbon.identity.application.authenticator.oidc</artifactId>
+                <version>5.12.36</version>
+            </dependency>
+            <dependency>
+                <groupId>org.wso2.orbit.org.apache.oltu.oauth2</groupId>
+                <artifactId>oltu-jdk21</artifactId>
+                <version>${oltu.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>org.wso2.carbon.identity.framework</groupId>
                 <artifactId>org.wso2.carbon.identity.application.authentication.framework</artifactId>
+                <version>${carbon.identity.framework.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.wso2.carbon.identity.framework</groupId>
+                <artifactId>org.wso2.carbon.idp.mgt</artifactId>
                 <version>${carbon.identity.framework.version}</version>
             </dependency>
             <dependency>
@@ -390,6 +405,7 @@
         <commons-lang3.version>3.10</commons-lang3.version>
         <identity.verification.version>1.0.12</identity.verification.version>
         <swagger-jaxrs.version>1.6.2</swagger-jaxrs.version>
+        <oltu.version>1.0.0.wso2v1</oltu.version>
 
         <osgi.framework.imp.pkg.version.range>[1.7.0, 2.0.0)</osgi.framework.imp.pkg.version.range>
         <osgi.service.component.imp.pkg.version.range>[1.2.0, 2.0.0)</osgi.service.component.imp.pkg.version.range>
@@ -405,6 +421,10 @@
         </carbon.identity.application.authentication.framework.imp.pkg.version.range>
         <httpcomponents-httpclient.imp.pkg.version.range>[4.5.13.wso2v1,5.0.0)
         </httpcomponents-httpclient.imp.pkg.version.range>
+        <imp.pkg.version.javax.servlet>[2.6,3)</imp.pkg.version.javax.servlet>
+        <oltu.package.import.version.range>[1.0.0.wso2v1,2.0.0)</oltu.package.import.version.range>
+        <carbon.identity.application.authenticator.oidc.imp.pkg.version.range>[5.12.0,8.0.0)</carbon.identity.application.authenticator.oidc.imp.pkg.version.range>
+        <identity.organization.management.imp.pkg.version.range>[1.0.0,3.0.0)</identity.organization.management.imp.pkg.version.range>
 
         <!-- Unit test versions -->
         <testng.version>7.10.1</testng.version>

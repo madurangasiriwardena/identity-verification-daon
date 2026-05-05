@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2025, WSO2 LLC. (http://www.wso2.com).
+ * Copyright (c) 2026, WSO2 LLC. (http://www.wso2.com).
  *
  * WSO2 LLC. licenses this file to you under the Apache License,
  * Version 2.0 (the "License"); you may not use this file except
@@ -22,12 +22,16 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.wso2.carbon.extension.identity.verification.mgt.exception.IdentityVerificationException;
 import org.wso2.carbon.extension.identity.verification.mgt.model.IdVClaim;
+import org.wso2.carbon.extension.identity.verification.provider.exception.IdVProviderMgtException;
+import org.wso2.carbon.extension.identity.verification.provider.model.IdVProvider;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.core.bean.context.MessageContext;
 import org.wso2.carbon.identity.event.IdentityEventConstants;
 import org.wso2.carbon.identity.event.IdentityEventException;
+import org.wso2.carbon.identity.event.bean.IdentityEventMessageContext;
 import org.wso2.carbon.identity.event.event.Event;
 import org.wso2.carbon.identity.event.handler.AbstractEventHandler;
+import org.wso2.carbon.identity.verification.daon.authenticator.constants.DaonAuthenticatorConstants;
 import org.wso2.carbon.identity.verification.daon.authenticator.internal.DaonAuthenticatorDataHolder;
 import org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants;
 
@@ -38,8 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-import static org.wso2.carbon.identity.verification.daon.authenticator.constants.DaonAuthenticatorConstants.THREAD_LOCAL_DAON_IDVP_ID;
-import static org.wso2.carbon.identity.verification.daon.authenticator.constants.DaonAuthenticatorConstants.THREAD_LOCAL_DAON_VERIFIED_CLAIMS;
+import static org.wso2.carbon.identity.verification.daon.authenticator.constants.DaonAuthenticatorConstants.*;
 
 /**
  * Event handler that persists Daon TrustX verified claim data to the IDV_CLAIM table after a user
@@ -67,9 +70,9 @@ public class DaonPostUserRegistrationHandler extends AbstractEventHandler {
     @Override
     public boolean canHandle(MessageContext messageContext) {
 
-        if (messageContext instanceof org.wso2.carbon.identity.event.bean.IdentityEventMessageContext) {
-            org.wso2.carbon.identity.event.bean.IdentityEventMessageContext eventMessageContext =
-                    (org.wso2.carbon.identity.event.bean.IdentityEventMessageContext) messageContext;
+        if (messageContext instanceof IdentityEventMessageContext) {
+            IdentityEventMessageContext eventMessageContext =
+                    (IdentityEventMessageContext) messageContext;
             return IdentityEventConstants.Event.POST_ADD_USER.equals(
                     eventMessageContext.getEvent().getEventName());
         }
@@ -89,22 +92,17 @@ public class DaonPostUserRegistrationHandler extends AbstractEventHandler {
                 return;
             }
 
-            String idvpId = (String) threadLocalProps.get(THREAD_LOCAL_DAON_IDVP_ID);
-            if (idvpId == null) {
-                return;
-            }
-
-            String userId = (String) event.getEventProperties()
-                    .get(IdentityEventConstants.EventProperty.USER_ID);
+            String userId = ((Map) event.getEventProperties()
+                    .get(IdentityEventConstants.EventProperty.USER_CLAIMS)).get(USER_ID_CLAIM).toString();
             int tenantId = (int) event.getEventProperties()
                     .get(IdentityEventConstants.EventProperty.TENANT_ID);
 
             if (LOG.isDebugEnabled()) {
                 LOG.debug("Persisting Daon verified claims for user: " + userId
-                        + ", idvpId: " + idvpId + ", claims: " + verifiedClaims.keySet());
+                        + ", idvpId: " + DAON_IDV_ID + ", claims: " + verifiedClaims.keySet());
             }
 
-            List<IdVClaim> idVClaims = buildIdVClaims(userId, idvpId, verifiedClaims);
+            List<IdVClaim> idVClaims = buildIdVClaims(userId, tenantId, verifiedClaims);
             DaonAuthenticatorDataHolder.getIdentityVerificationManager()
                     .addIdVClaims(userId, idVClaims, tenantId);
 
@@ -116,18 +114,32 @@ public class DaonPostUserRegistrationHandler extends AbstractEventHandler {
         }
     }
 
-    private List<IdVClaim> buildIdVClaims(String userId, String idvpId,
-                                           Map<String, String> verifiedClaims) {
+    public static List<IdVClaim> buildIdVClaims(String userId, int tenantId, Map<String, String> verifiedClaims)  {
 
         List<IdVClaim> idVClaims = new ArrayList<>();
         String completedAt = Instant.now().toString();
+        IdVProvider idVProvider = null;
+        try {
+            idVProvider =
+                    DaonAuthenticatorDataHolder.getIdVProviderManager().getIdVProviderByName(
+                            DAON_IDV_PROVIDER_ID, tenantId);
+
+        } catch (IdVProviderMgtException e) {
+            LOG.error("Error retrieving Daon Identity Verification Provider details for claim metadata.", e);
+        }
+
+        if (idVProvider == null || idVProvider.getId() == null) {
+            LOG.error("Daon Identity Verification Provider not found or has null ID; " +
+                    "cannot set IDVP ID in claim metadata.");
+            return idVClaims;
+        }
 
         for (Map.Entry<String, String> entry : verifiedClaims.entrySet()) {
             IdVClaim claim = new IdVClaim();
             claim.setUuid(UUID.randomUUID().toString());
             claim.setUserId(userId);
             claim.setClaimUri(entry.getKey());
-            claim.setIdVPId(idvpId);
+            claim.setIdVPId(idVProvider.getIdVProviderUuid());
             claim.setIsVerified(true);
             claim.setClaimValue(entry.getValue());
 

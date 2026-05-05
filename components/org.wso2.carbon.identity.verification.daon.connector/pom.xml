@@ -93,6 +93,9 @@
                     <instructions>
                         <Bundle-SymbolicName>${project.artifactId}</Bundle-SymbolicName>
                         <Bundle-Name>${project.artifactId}</Bundle-Name>
+                        <_dsannotations>*</_dsannotations>
+                        <_dsannotations-options>version;minimum=1.2.0;maximum=1.2.0,nocapabilities,norequirements</_dsannotations-options>
+                        <_removeheaders>Require-Capability</_removeheaders>
                         <Private-Package>
                             org.wso2.carbon.identity.verification.daon.connector.internal
                         </Private-Package>

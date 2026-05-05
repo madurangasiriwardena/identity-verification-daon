@@ -41,9 +41,7 @@ import org.wso2.carbon.identity.verification.daon.connector.web.DaonAPIClient;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import javax.ws.rs.core.Response;
@@ -71,8 +69,6 @@ import static org.wso2.carbon.identity.verification.daon.connector.constants.Dao
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.REDIRECT_URI;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.SCOPE;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.VERIFIED_CLAIMS_ID_TOKEN;
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_IDV_PROVIDER_CONFIG_PROPERTIES_EMPTY;
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_IDV_PROVIDER_INVALID_OR_DISABLED;
 
 /**
  * Handles the Daon TrustX OIDC callback after the user completes identity verification.
