@@ -141,7 +141,6 @@ public class DaonPostUserRegistrationHandler extends AbstractEventHandler {
             claim.setClaimUri(entry.getKey());
             claim.setIdVPId(idVProvider.getIdVProviderUuid());
             claim.setIsVerified(true);
-            claim.setClaimValue(entry.getValue());
 
             Map<String, Object> metadata = new HashMap<>();
             metadata.put(DaonConstants.DAON_FLOW_STATUS,
@@ -149,6 +148,9 @@ public class DaonPostUserRegistrationHandler extends AbstractEventHandler {
             metadata.put(DaonConstants.DAON_VERIFICATION_STATUS,
                     DaonConstants.DaonVerificationStatus.VERIFIED.getStatus());
             metadata.put(DaonConstants.DAON_COMPLETED_AT, completedAt);
+            if (DaonConstants.PREFERRED_USERNAME_CLAIM_URI.equals(entry.getKey())) {
+                metadata.put(DaonConstants.JWT_PREFERRED_USERNAME_CLAIM, entry.getValue());
+            }
             claim.setMetadata(metadata);
 
             idVClaims.add(claim);

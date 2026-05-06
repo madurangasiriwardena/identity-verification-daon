@@ -59,6 +59,16 @@ public class DaonAuthenticatorConstants {
     public static final String DAON_AUTH_ENDPOINT_PARAM = "daonAuthorizationEndpoint";
     public static final String DAON_TOKEN_ENDPOINT_PARAM = "daonTokenEndpoint";
 
+    /**
+     * Authenticator-specific (login flow) client credentials.
+     * The standard ClientId / ClientSecret keys are reserved for the DaonExecutor (signup flow)
+     * so that OpenIDConnectExecutor's private auth-URL generation can use them without modification.
+     */
+    public static final String LOGIN_CLIENT_ID = "daon_login_client_id";
+    public static final String LOGIN_CLIENT_SECRET = "daon_login_client_secret";
+    public static final String EXECUTOR_SCOPES = "Scopes";
+    public static final String DEFAULT_EXECUTOR_SCOPES = "openid profile document";
+
     // Default Daon (Keycloak) endpoints — configurable via authenticator properties
     public static final String DAON_OAUTH_ENDPOINT =
             "https://wso2.oak.trustx.com/auth/realms/wso2/protocol/openid-connect/auth";
@@ -67,6 +77,7 @@ public class DaonAuthenticatorConstants {
 
     // OIDC claims request parameter sent to the Daon authorization endpoint.
     // Requests all IDV claims inside the id_token using the verified_claims structure.
+    //TODO improve this to build this dynamically
     public static final String DAON_CLAIMS_REQUEST_JSON =
             "{\"id_token\":{\"verified_claims\":{" +
                     "\"verification\":{\"trust_framework\":\"daon-identify-1\"}," +

@@ -37,6 +37,7 @@ import org.wso2.carbon.identity.flow.execution.engine.model.ExecutorResponse;
 import org.wso2.carbon.identity.flow.execution.engine.model.FlowExecutionContext;
 import org.wso2.carbon.identity.verification.daon.authenticator.constants.DaonAuthenticatorConstants;
 import org.wso2.carbon.identity.verification.daon.authenticator.internal.DaonAuthenticatorDataHolder;
+import org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants;
 import org.wso2.carbon.user.api.UserStoreException;
 import org.wso2.carbon.user.core.UniqueIDUserStoreManager;
 
@@ -151,6 +152,12 @@ public class DaonExecutor extends OpenIDConnectExecutor {
             }
             String claimUri = DaonAuthenticatorConstants.CLAIM_DIALECT_URI + "/" + key;
             extractedClaims.put(claimUri, claimValue);
+        }
+
+        String preferredUsername = idTokenPayload.optString(DaonConstants.JWT_PREFERRED_USERNAME_CLAIM, null);
+        if (StringUtils.isNotBlank(preferredUsername)) {
+            LOG.info("Preferred is present in Daon ID token for subject: " + preferredUsername);
+            extractedClaims.put(DaonConstants.PREFERRED_USERNAME_CLAIM_URI, preferredUsername);
         }
 
         String extractedName = extractedClaims.get("http://wso2.org/daon/claims/family_name_and_given_name");

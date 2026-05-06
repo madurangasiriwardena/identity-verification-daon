@@ -45,9 +45,17 @@ cp components/org.wso2.carbon.identity.verification.daon.api/\
 org.wso2.carbon.identity.verification.daon.api.dispatcher/target/idv#daon.war \
 $IS_HOME/repository/deployment/server/webapps/
 
-# UI metadata
+# UI metadata — Daon IdVP (identity verification provider)
 cp -r ui-metadata/daon \
 $IS_HOME/repository/resources/identity/extensions/identity-verification-providers/
+
+# UI metadata — Daon Face Auth (federated authenticator connection)
+cp -r ui-metadata/daon-face-auth \
+$IS_HOME/repository/resources/identity/extensions/connections/
+
+# Daon logo (shared by both the IdVP and the Face Auth connection)
+cp ui-metadata/assets/images/logos/daon.svg \
+$IS_HOME/repository/deployment/server/webapps/console/resources/connections/assets/images/logos/
 ```
 
 ### 2. Update deployment.toml

@@ -179,6 +179,52 @@ public class DaonAPIClient {
     }
 
     /**
+     * Exchanges an authorization code for tokens using a fully-qualified token endpoint URL.
+     *
+     * <p>Use this overload when the caller already has the full token endpoint URL (e.g. from
+     * an authenticator property), rather than a base URL that needs a path appended.
+     *
+     * @param tokenEndpointUrl Full token endpoint URL.
+     * @param clientId         OAuth2 client ID.
+     * @param clientSecret     OAuth2 client secret.
+     * @param code             The authorization code received from the authorization server.
+     * @param redirectUri      The redirect URI used in the original authorization request.
+     * @return A JSONObject containing at minimum {@code access_token} and {@code id_token}.
+     * @throws DaonServerException If a server-side error occurs.
+     * @throws DaonClientException If the code is invalid or credentials are wrong.
+     */
+    public static JSONObject exchangeCodeForTokens(String tokenEndpointUrl, String clientId,
+                                                    String clientSecret, String code, String redirectUri)
+            throws DaonServerException, DaonClientException {
+
+        try {
+            String requestBody = GRANT_TYPE + "=" + GRANT_TYPE_AUTHORIZATION_CODE
+                    + "&" + "code" + "=" + encode(code)
+                    + "&" + REDIRECT_URI + "=" + encode(redirectUri);
+
+            HttpResponse response = DaonWebUtils.httpPostWithBasicAuth(
+                    clientId, clientSecret, tokenEndpointUrl, requestBody);
+
+            int statusCode = response.getStatusLine().getStatusCode();
+            if (statusCode == HttpStatus.SC_OK) {
+                return getJsonObject(response);
+            } else if (statusCode == HttpStatus.SC_UNAUTHORIZED) {
+                throw new DaonClientException(ERROR_INVALID_CLIENT_CREDENTIALS.getCode(),
+                        ERROR_INVALID_CLIENT_CREDENTIALS.getMessage());
+            } else if (statusCode == HttpStatus.SC_BAD_REQUEST) {
+                throw new DaonClientException(ERROR_INVALID_OR_EXPIRED_CODE.getCode(),
+                        ERROR_INVALID_OR_EXPIRED_CODE.getMessage());
+            } else {
+                throw new DaonServerException(ERROR_EXCHANGING_CODE_FOR_TOKENS.getCode(),
+                        String.format(ERROR_EXCHANGING_CODE_FOR_TOKENS.getMessage(), statusCode));
+            }
+        } catch (URISyntaxException e) {
+            throw new DaonServerException(ERROR_BUILDING_DAON_TOKEN_URI.getCode(),
+                    ERROR_BUILDING_DAON_TOKEN_URI.getMessage(), e);
+        }
+    }
+
+    /**
      * Retrieves user info from the Daon userinfo endpoint using the access token.
      *
      * @param idVConfigPropertyMap Configuration properties of the IdV Provider.

@@ -41,8 +41,10 @@ import org.wso2.carbon.identity.verification.daon.connector.web.DaonAPIClient;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.UUID;
 
 import javax.ws.rs.core.Response;
 
@@ -134,10 +136,14 @@ public class DaonCallbackService {
         }
 
         String idToken = tokenResponse.optString(DaonConstants.ID_TOKEN);
-
         JSONObject idTokenClaims = DaonAPIClient.parseIdToken(idToken);
 
         updateIdVClaims(idVProvider, claims, idTokenClaims, tenantId);
+
+        String preferredUsername = idTokenClaims.optString(DaonConstants.JWT_PREFERRED_USERNAME_CLAIM, null);
+        if (StringUtils.isNotBlank(preferredUsername)) {
+            storePreferredUsernameClaim(claims[0].getUserId(), preferredUsername, idvpId, tenantId);
+        }
 
         String callbackUrl = configProperties.get(CALLBACK_URL);
         try {
@@ -274,6 +280,30 @@ public class DaonCallbackService {
                 throw buildServerError(SERVER_ERROR_UPDATING_IDV_CLAIM_VERIFICATION_STATUS,
                         Response.Status.INTERNAL_SERVER_ERROR, e);
             }
+        }
+    }
+
+    private void storePreferredUsernameClaim(String userId, String preferredUsername,
+                                               String idvpId, int tenantId) {
+
+        IdVClaim claim = new IdVClaim();
+        claim.setUuid(UUID.randomUUID().toString());
+        claim.setUserId(userId);
+        claim.setClaimUri(DaonConstants.PREFERRED_USERNAME_CLAIM_URI);
+        claim.setIdVPId(idvpId);
+        claim.setIsVerified(true);
+
+        Map<String, Object> metadata = new HashMap<>();
+        metadata.put(DAON_FLOW_STATUS, DaonConstants.VerificationFlowStatus.COMPLETED.getStatus());
+        metadata.put(DAON_VERIFICATION_STATUS, DaonConstants.DaonVerificationStatus.VERIFIED.getStatus());
+        metadata.put(DAON_COMPLETED_AT, Instant.now().toString());
+        metadata.put(DaonConstants.JWT_PREFERRED_USERNAME_CLAIM, preferredUsername);
+        claim.setMetadata(metadata);
+
+        try {
+            identityVerificationManager.addIdVClaims(userId, Collections.singletonList(claim), tenantId);
+        } catch (IdentityVerificationException e) {
+            log.warn("Failed to persist Daon preferred_username claim for user: " + userId, e);
         }
     }
 

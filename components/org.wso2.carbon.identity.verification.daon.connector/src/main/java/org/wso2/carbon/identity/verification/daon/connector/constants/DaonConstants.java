@@ -87,6 +87,16 @@ public class DaonConstants {
     public static final String DAON_AUTHORIZATION_URL = "daon_authorization_url";
 
     /**
+     * Daon preferred_username claim — the Daon-assigned identifier returned in the ID token.
+     * Stored in the IDV claim store after successful IDV and used as login_hint during face auth.
+     */
+    public static final String JWT_PREFERRED_USERNAME_CLAIM = "preferred_username";
+    public static final String PREFERRED_USERNAME_CLAIM_URI = "http://wso2.org/daon/claims/preferred_username";
+
+    /** OIDC login_hint query parameter used to pre-identify the user on the Daon authorization endpoint. */
+    public static final String LOGIN_HINT = "login_hint";
+
+    /**
      * Error messages.
      */
     public enum ErrorMessage {
