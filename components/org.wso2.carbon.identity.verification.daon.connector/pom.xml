@@ -60,6 +60,11 @@
             <artifactId>org.wso2.carbon.user.core</artifactId>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.wso2.carbon.identity.framework</groupId>
+            <artifactId>org.wso2.carbon.identity.core</artifactId>
+            <scope>provided</scope>
+        </dependency>
         <!--Test dependencies-->
         <dependency>
             <groupId>org.testng</groupId>
@@ -128,6 +133,7 @@
                             org.wso2.carbon.extension.identity.verification.provider.model;
                             version="${identity.verification.package.version.range}",
                             org.wso2.carbon.identity.base; version="${carbon.identity.package.import.version.range}",
+                            org.wso2.carbon.identity.core.util; version="${carbon.identity.package.import.version.range}",
                             org.wso2.carbon.user.api; version="${carbon.user.api.imp.pkg.version.range}",
                             org.wso2.carbon.user.core; version="${carbon.kernel.package.import.version.range}",
                             org.wso2.carbon.user.core.constants; version="${carbon.kernel.package.import.version.range}",

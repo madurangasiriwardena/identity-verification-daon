@@ -45,26 +45,27 @@
 					"helperText": "The OIDC Client Secret registered in the Daon TrustX tenant."
 				},
 				{
-					"id": "base_url",
-					"aria-label": "Base URL",
-					"name": "configProperties.base_url",
-					"label": "Base URL",
+					"id": "authorization_endpoint",
+					"aria-label": "Authorization Endpoint",
+					"name": "configProperties.authorization_endpoint",
+					"label": "Authorization Endpoint",
 					"type": "text",
 					"required": true,
-					"placeholder": "https://{tenant}.oak.trustx.com/auth/realms/{tenant}",
-					"data-componentid": "idvp-create-wizard-base-url",
-					"helperText": "The Daon TrustX base URL in the format https://{tenant}.oak.trustx.com/auth/realms/{tenant}."
+					"placeholder": "https://{tenant}.oak.trustx.com/auth/realms/{tenant}/protocol/openid-connect/auth",
+					"data-componentid": "idvp-create-wizard-authorization-endpoint",
+					"helperText": "The Daon TrustX OIDC authorization endpoint URL."
 				},
 				{
-					"id": "redirect_uri",
-					"aria-label": "Redirect URI",
-					"name": "configProperties.redirect_uri",
-					"label": "Redirect URI",
+					"id": "token_endpoint",
+					"aria-label": "Token Endpoint",
+					"name": "configProperties.token_endpoint",
+					"label": "Token Endpoint",
 					"type": "text",
 					"required": true,
-					"data-componentid": "idvp-create-wizard-redirect-uri",
-					"helperText": "The callback URL registered in Daon TrustX to receive the authorization code."
-				}
+					"placeholder": "https://{tenant}.oak.trustx.com/auth/realms/{tenant}/protocol/openid-connect/token",
+					"data-componentid": "idvp-create-wizard-token-endpoint",
+					"helperText": "The Daon TrustX OIDC token endpoint URL."
+				},
 			]
 		}
 	},
@@ -134,24 +135,26 @@
 							"helperText": "The OIDC Client Secret registered in the Daon TrustX tenant."
 						},
 						{
-							"id": "base_url",
-							"aria-label": "Base URL",
-							"name": "configProperties.base_url",
-							"label": "Base URL",
+							"id": "authorization_endpoint",
+							"aria-label": "Authorization Endpoint",
+							"name": "configProperties.authorization_endpoint",
+							"label": "Authorization Endpoint",
 							"type": "text",
 							"required": true,
-							"data-componentid": "idvp-edit-form-base-url",
-							"helperText": "The Daon TrustX base URL in the format https://{tenant}.oak.trustx.com/auth/realms/{tenant}."
+							"placeholder": "https://{tenant}.oak.trustx.com/auth/realms/{tenant}/protocol/openid-connect/auth",
+							"data-componentid": "idvp-edit-form-authorization-endpoint",
+							"helperText": "The Daon TrustX OIDC authorization endpoint URL."
 						},
 						{
-							"id": "redirect_uri",
-							"aria-label": "Redirect URI",
-							"name": "configProperties.redirect_uri",
-							"label": "Redirect URI",
+							"id": "token_endpoint",
+							"aria-label": "Token Endpoint",
+							"name": "configProperties.token_endpoint",
+							"label": "Token Endpoint",
 							"type": "text",
 							"required": true,
-							"data-componentid": "idvp-edit-form-redirect-uri",
-							"helperText": "The callback URL registered in Daon TrustX to receive the authorization code."
+							"placeholder": "https://{tenant}.oak.trustx.com/auth/realms/{tenant}/protocol/openid-connect/token",
+							"data-componentid": "idvp-edit-form-token-endpoint",
+							"helperText": "The Daon TrustX OIDC token endpoint URL."
 						},
 						{
 							"id": "scope",

@@ -25,11 +25,11 @@
         "value": ""
       },
       {
-        "key": "base_url",
+        "key": "authorization_endpoint",
         "value": ""
       },
       {
-        "key": "redirect_uri",
+        "key": "token_endpoint",
         "value": ""
       },
       {

@@ -27,9 +27,11 @@ import org.json.JSONObject;
 import org.wso2.carbon.extension.identity.verification.mgt.exception.IdentityVerificationException;
 import org.wso2.carbon.extension.identity.verification.mgt.model.IdVClaim;
 import org.wso2.carbon.extension.identity.verification.provider.exception.IdVProviderMgtException;
+import org.wso2.carbon.extension.identity.verification.provider.model.IdVConfigProperty;
 import org.wso2.carbon.extension.identity.verification.provider.model.IdVProvider;
 import org.wso2.carbon.identity.application.authenticator.oidc.OIDCAuthenticatorConstants;
 import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectExecutor;
+import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.flow.execution.engine.exception.FlowEngineException;
@@ -73,21 +75,57 @@ public class DaonExecutor extends OpenIDConnectExecutor {
 
     @Override
     public String getAuthorizationServerEndpoint(Map<String, String> authenticatorProperties) {
-        String endpoint = authenticatorProperties.get(DaonAuthenticatorConstants.DAON_AUTH_ENDPOINT_PARAM);
-        return StringUtils.isNotBlank(endpoint) ? endpoint : DaonAuthenticatorConstants.DAON_OAUTH_ENDPOINT;
+        return authenticatorProperties.get(DaonConstants.AUTHORIZATION_ENDPOINT_URL);
     }
 
     @Override
     public String getTokenEndpoint(Map<String, String> authenticatorProperties) {
-        String endpoint = authenticatorProperties.get(DaonAuthenticatorConstants.DAON_TOKEN_ENDPOINT_PARAM);
-        return StringUtils.isNotBlank(endpoint) ? endpoint : DaonAuthenticatorConstants.DAON_TOKEN_ENDPOINT;
+        return authenticatorProperties.get(DaonConstants.TOKEN_ENDPOINT_URL);
     }
 
     @Override
     public ExecutorResponse execute(FlowExecutionContext flowExecutionContext) {
 
         flowExecutionContext.setPortalUrl("https://is.test.com:9443/accounts/register");
+        injectIdvpConfigs(flowExecutionContext);
         return super.execute(flowExecutionContext);
+    }
+
+    private void injectIdvpConfigs(FlowExecutionContext flowExecutionContext) {
+
+        Map<String, String> props = flowExecutionContext.getAuthenticatorProperties();
+        String idvpId = props.get(DAON_IDVP_ID);
+        if (StringUtils.isBlank(idvpId)) {
+            LOG.warn("daon_idvp_id not configured in the connection; executor cannot resolve IDVP credentials.");
+            return;
+        }
+        try {
+            int tenantId = IdentityTenantUtil.getTenantId(flowExecutionContext.getTenantDomain());
+            IdVProvider idVProvider = DaonAuthenticatorDataHolder.getIdVProviderManager()
+                    .getIdVProvider(idvpId, tenantId);
+            if (idVProvider == null) {
+                LOG.warn("No IDVP found for id: " + idvpId + "; executor may fail.");
+                return;
+            }
+            Map<String, String> idvpProps = new HashMap<>();
+            for (IdVConfigProperty prop : idVProvider.getIdVConfigProperties()) {
+                idvpProps.put(prop.getName(), prop.getValue());
+            }
+            Map<String, String> enriched = new HashMap<>(props);
+            enriched.put(OIDCAuthenticatorConstants.CLIENT_ID, idvpProps.get(DaonConstants.CLIENT_ID));
+            enriched.put(OIDCAuthenticatorConstants.CLIENT_SECRET, idvpProps.get(DaonConstants.CLIENT_SECRET));
+            enriched.put(IdentityApplicationConstants.OAuth2.CALLBACK_URL,
+                    IdentityUtil.getServerURL(String.format(DaonConstants.DAON_CALLBACK_URL_FORMAT, idvpId), true, true));
+            enriched.put(DaonConstants.AUTHORIZATION_ENDPOINT_URL, idvpProps.get(DaonConstants.AUTHORIZATION_ENDPOINT_URL));
+            enriched.put(DaonConstants.TOKEN_ENDPOINT_URL, idvpProps.get(DaonConstants.TOKEN_ENDPOINT_URL));
+            String scope = idvpProps.get(DaonConstants.SCOPE);
+            if (StringUtils.isNotBlank(scope)) {
+                enriched.put(EXECUTOR_SCOPES, scope);
+            }
+            flowExecutionContext.setAuthenticatorProperties(enriched);
+        } catch (IdVProviderMgtException e) {
+            LOG.error("Failed to look up IDVP configs for id: " + idvpId + "; executor may fail.", e);
+        }
     }
 
     @Override

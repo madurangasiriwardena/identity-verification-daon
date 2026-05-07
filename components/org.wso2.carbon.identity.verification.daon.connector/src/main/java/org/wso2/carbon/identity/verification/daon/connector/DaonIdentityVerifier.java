@@ -31,6 +31,7 @@ import org.wso2.carbon.extension.identity.verification.mgt.model.IdentityVerifie
 import org.wso2.carbon.extension.identity.verification.mgt.utils.IdentityVerificationConstants;
 import org.wso2.carbon.extension.identity.verification.mgt.utils.IdentityVerificationExceptionMgt;
 import org.wso2.carbon.extension.identity.verification.provider.model.IdVProvider;
+import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants;
 import org.wso2.carbon.identity.verification.daon.connector.exception.DaonClientException;
 import org.wso2.carbon.identity.verification.daon.connector.exception.DaonServerException;
@@ -51,14 +52,14 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static org.wso2.carbon.extension.identity.verification.mgt.utils.IdentityVerificationConstants.ErrorMessage.ERROR_GETTING_USER_STORE;
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.BASE_URL;
+import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.AUTHORIZATION_ENDPOINT_URL;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.CALLBACK_URL;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.CLIENT_ID;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.CLIENT_SECRET;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.DAON_AUTHORIZATION_URL;
+import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.DAON_CALLBACK_URL_FORMAT;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.DAON_FLOW_STATUS;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.DAON_STATE;
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.REDIRECT_URI;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.SCOPE;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.STATUS;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_CLAIM_MAPPING_NOT_FOUND;
@@ -136,8 +137,10 @@ public class DaonIdentityVerifier extends AbstractIdentityVerifier {
         try {
             String state = UUID.randomUUID().toString();
             List<String> daonClaimNames = new ArrayList<>(claimsMap.keySet());
+            String redirectUri = IdentityUtil.getServerURL(
+                    String.format(DAON_CALLBACK_URL_FORMAT, idVProvider.getIdVProviderUuid()), true, true);
             String authorizationUrl = DaonAPIClient.buildAuthorizationUrl(idVProviderConfigProperties, state,
-                    daonClaimNames);
+                    daonClaimNames, redirectUri);
 
             Map<String, Object> persistedMetadata = buildInitiatedMetadata(state);
             updateAndStoreClaims(userId, tenantId, idVProvider, verificationRequiredClaims, claimsToUpdate,
@@ -180,8 +183,10 @@ public class DaonIdentityVerifier extends AbstractIdentityVerifier {
                     .map(c -> claimMappings.get(c.getClaimUri()))
                     .filter(name -> name != null)
                     .collect(Collectors.toList());
+            String redirectUri = IdentityUtil.getServerURL(
+                    String.format(DAON_CALLBACK_URL_FORMAT, idVProvider.getIdVProviderUuid()), true, true);
             String authorizationUrl = DaonAPIClient.buildAuthorizationUrl(idVProviderConfigProperties, newState,
-                    daonClaimNames);
+                    daonClaimNames, redirectUri);
 
             for (IdVClaim idVClaim : idVClaims) {
                 Map<String, Object> metadata = idVClaim.getMetadata();
@@ -232,8 +237,7 @@ public class DaonIdentityVerifier extends AbstractIdentityVerifier {
         if (props == null || props.isEmpty()
                 || StringUtils.isBlank(props.get(CLIENT_ID))
                 || StringUtils.isBlank(props.get(CLIENT_SECRET))
-                || StringUtils.isBlank(props.get(BASE_URL))
-                || StringUtils.isBlank(props.get(REDIRECT_URI))
+                || StringUtils.isBlank(props.get(AUTHORIZATION_ENDPOINT_URL))
                 || StringUtils.isBlank(props.get(SCOPE))
                 || StringUtils.isBlank(props.get(CALLBACK_URL))) {
             throw new IdentityVerificationClientException(ERROR_IDV_PROVIDER_CONFIG_PROPERTIES_EMPTY.getCode(),

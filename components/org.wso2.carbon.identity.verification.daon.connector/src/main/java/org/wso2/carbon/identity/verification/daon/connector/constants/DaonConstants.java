@@ -34,14 +34,22 @@ public class DaonConstants {
      */
     public static final String CLIENT_ID = "client_id";
     public static final String CLIENT_SECRET = "client_secret";
-    public static final String BASE_URL = "base_url";
-    public static final String REDIRECT_URI = "redirect_uri";
+    public static final String AUTHORIZATION_ENDPOINT_URL = "authorization_endpoint";
+    public static final String TOKEN_ENDPOINT_URL = "token_endpoint";
     public static final String SCOPE = "scope";
     public static final String CALLBACK_URL = "callback_url";
 
     /**
+     * URL format for the Daon OIDC callback endpoint on this IS instance.
+     * The single format argument is the IdV provider UUID.
+     * Build with: IdentityUtil.getServerURL(String.format(DAON_CALLBACK_URL_FORMAT, idvpId), true, true)
+     */
+    public static final String DAON_CALLBACK_URL_FORMAT = "/idv/daon/v1/%s/callback";
+
+    /**
      * OIDC protocol constants.
      */
+    public static final String REDIRECT_URI = "redirect_uri";
     public static final String STATUS = "status";
     public static final String RESPONSE_TYPE = "response_type";
     public static final String RESPONSE_TYPE_CODE = "code";
@@ -50,13 +58,6 @@ public class DaonConstants {
     public static final String ACCESS_TOKEN = "access_token";
     public static final String ID_TOKEN = "id_token";
     public static final String STATE = "state";
-
-    /**
-     * Daon OIDC endpoint paths.
-     */
-    public static final String AUTH_ENDPOINT = "/protocol/openid-connect/auth";
-    public static final String TOKEN_ENDPOINT = "/protocol/openid-connect/token";
-    public static final String USERINFO_ENDPOINT = "/protocol/openid-connect/userinfo";
 
     /**
      * OIDC claims request parameter and verified_claims response keys.

@@ -28,7 +28,6 @@ import org.wso2.carbon.identity.verification.daon.connector.exception.DaonClient
 import org.wso2.carbon.identity.verification.daon.connector.exception.DaonServerException;
 
 import java.io.IOException;
-import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -36,8 +35,7 @@ import java.util.List;
 import java.util.Map;
 
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ACCESS_TOKEN;
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.AUTH_ENDPOINT;
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.BASE_URL;
+import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.AUTHORIZATION_ENDPOINT_URL;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.CLAIMS_PARAM;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.CLIENT_ID;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.CLIENT_SECRET;
@@ -49,19 +47,15 @@ import static org.wso2.carbon.identity.verification.daon.connector.constants.Dao
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.RESPONSE_TYPE_CODE;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.SCOPE;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.STATE;
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.TOKEN_ENDPOINT;
+import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.TOKEN_ENDPOINT_URL;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.TRUST_FRAMEWORK;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.TRUST_FRAMEWORK_VALUE;
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.USERINFO_ENDPOINT;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.VERIFICATION;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.VERIFIED_CLAIMS;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_BUILDING_DAON_AUTH_URI;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_BUILDING_DAON_TOKEN_URI;
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_BUILDING_DAON_USERINFO_URI;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_CREATING_RESPONSE;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_EXCHANGING_CODE_FOR_TOKENS;
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_GETTING_USERINFO;
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_INVALID_BASE_URL;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_INVALID_CLIENT_CREDENTIALS;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ErrorMessage.ERROR_INVALID_OR_EXPIRED_CODE;
 
@@ -81,17 +75,15 @@ public class DaonAPIClient {
      * @throws DaonServerException If the URL cannot be built.
      */
     public static String buildAuthorizationUrl(Map<String, String> idVConfigPropertyMap, String state,
-                                                List<String> daonClaimNames)
+                                                List<String> daonClaimNames, String redirectUri)
             throws DaonServerException {
 
-        String baseUrl = idVConfigPropertyMap.get(BASE_URL);
+        String authEndpoint = idVConfigPropertyMap.get(AUTHORIZATION_ENDPOINT_URL);
         String clientId = idVConfigPropertyMap.get(CLIENT_ID);
-        String redirectUri = idVConfigPropertyMap.get(REDIRECT_URI);
         String scope = idVConfigPropertyMap.get(SCOPE);
 
         try {
-            URI uri = buildUri(baseUrl, AUTH_ENDPOINT);
-            URIBuilder builder = new URIBuilder(uri)
+            URIBuilder builder = new URIBuilder(authEndpoint)
                     .addParameter(RESPONSE_TYPE, RESPONSE_TYPE_CODE)
                     .addParameter(CLIENT_ID, clientId)
                     .addParameter(SCOPE, scope)
@@ -142,22 +134,21 @@ public class DaonAPIClient {
      * @throws DaonServerException If a server-side error occurs.
      * @throws DaonClientException If the code is invalid or credentials are wrong.
      */
-    public static JSONObject exchangeCodeForTokens(Map<String, String> idVConfigPropertyMap, String code)
+    public static JSONObject exchangeCodeForTokens(Map<String, String> idVConfigPropertyMap, String code,
+                                                    String redirectUri)
             throws DaonServerException, DaonClientException {
 
-        String baseUrl = idVConfigPropertyMap.get(BASE_URL);
+        String tokenEndpoint = idVConfigPropertyMap.get(TOKEN_ENDPOINT_URL);
         String clientId = idVConfigPropertyMap.get(CLIENT_ID);
         String clientSecret = idVConfigPropertyMap.get(CLIENT_SECRET);
-        String redirectUri = idVConfigPropertyMap.get(REDIRECT_URI);
 
         try {
-            URI uri = buildUri(baseUrl, TOKEN_ENDPOINT);
             String requestBody = GRANT_TYPE + "=" + GRANT_TYPE_AUTHORIZATION_CODE
                     + "&" + "code" + "=" + encode(code)
                     + "&" + REDIRECT_URI + "=" + encode(redirectUri);
 
             HttpResponse response = DaonWebUtils.httpPostWithBasicAuth(
-                    clientId, clientSecret, uri.toString(), requestBody);
+                    clientId, clientSecret, tokenEndpoint, requestBody);
 
             int statusCode = response.getStatusLine().getStatusCode();
             if (statusCode == HttpStatus.SC_OK) {
@@ -225,40 +216,6 @@ public class DaonAPIClient {
     }
 
     /**
-     * Retrieves user info from the Daon userinfo endpoint using the access token.
-     *
-     * @param idVConfigPropertyMap Configuration properties of the IdV Provider.
-     * @param accessToken          The OAuth2 access token.
-     * @return A JSONObject containing the verified claims returned by Daon.
-     * @throws DaonServerException If a server-side error occurs.
-     * @throws DaonClientException If the access token is invalid.
-     */
-    public static JSONObject getUserInfo(Map<String, String> idVConfigPropertyMap, String accessToken)
-            throws DaonServerException, DaonClientException {
-
-        String baseUrl = idVConfigPropertyMap.get(BASE_URL);
-
-        try {
-            URI uri = buildUri(baseUrl, USERINFO_ENDPOINT);
-            HttpResponse response = DaonWebUtils.httpGetWithBearerAuth(accessToken, uri.toString());
-
-            int statusCode = response.getStatusLine().getStatusCode();
-            if (statusCode == HttpStatus.SC_OK) {
-                return getJsonObject(response);
-            } else if (statusCode == HttpStatus.SC_UNAUTHORIZED) {
-                throw new DaonClientException(ERROR_INVALID_CLIENT_CREDENTIALS.getCode(),
-                        ERROR_INVALID_CLIENT_CREDENTIALS.getMessage());
-            } else {
-                throw new DaonServerException(ERROR_GETTING_USERINFO.getCode(),
-                        String.format(ERROR_GETTING_USERINFO.getMessage(), statusCode));
-            }
-        } catch (URISyntaxException e) {
-            throw new DaonServerException(ERROR_BUILDING_DAON_USERINFO_URI.getCode(),
-                    ERROR_BUILDING_DAON_USERINFO_URI.getMessage(), e);
-        }
-    }
-
-    /**
      * Decodes the payload of a JWT ID token without verification (claims extraction only).
      *
      * @param idToken The dot-separated JWT string.
@@ -284,16 +241,6 @@ public class DaonAPIClient {
             throw new DaonServerException(ERROR_CREATING_RESPONSE.getCode(),
                     ERROR_CREATING_RESPONSE.getMessage());
         }
-    }
-
-    /**
-     * Constructs a URI by appending the endpoint to the existing path of the base URL,
-     * preserving any version segment already present in the base URL.
-     */
-    private static URI buildUri(String baseUrl, String endpoint) throws URISyntaxException {
-
-        URIBuilder builder = new URIBuilder(baseUrl);
-        return builder.setPath(builder.getPath() + endpoint).build();
     }
 
     private static String encode(String value) throws URISyntaxException {

@@ -35,10 +35,7 @@ public class DaonAuthenticatorConstants {
      */
     public static final String DAON_IDVP_ID = "daon_idvp_id";
 
-    /**
-     * The /commonauth redirect URI used for the authentication flow.
-     * Overrides the IdVP-configured redirect_uri which points to the API callback.
-     */
+    /** The /commonauth redirect URI used for the login authentication flow. */
     public static final String COMMON_AUTH_ENDPOINT = "/commonauth";
 
     /**
@@ -55,10 +52,6 @@ public class DaonAuthenticatorConstants {
     public static final String PARAM_STATE = "state";
     public static final String PARAM_SESSION_STATE = "session_state";
 
-    // Configurable property keys exposed in the admin UI
-    public static final String DAON_AUTH_ENDPOINT_PARAM = "daonAuthorizationEndpoint";
-    public static final String DAON_TOKEN_ENDPOINT_PARAM = "daonTokenEndpoint";
-
     /**
      * Authenticator-specific (login flow) client credentials.
      * The standard ClientId / ClientSecret keys are reserved for the DaonExecutor (signup flow)
@@ -67,13 +60,6 @@ public class DaonAuthenticatorConstants {
     public static final String LOGIN_CLIENT_ID = "daon_login_client_id";
     public static final String LOGIN_CLIENT_SECRET = "daon_login_client_secret";
     public static final String EXECUTOR_SCOPES = "Scopes";
-    public static final String DEFAULT_EXECUTOR_SCOPES = "openid profile document";
-
-    // Default Daon (Keycloak) endpoints — configurable via authenticator properties
-    public static final String DAON_OAUTH_ENDPOINT =
-            "https://wso2.oak.trustx.com/auth/realms/wso2/protocol/openid-connect/auth";
-    public static final String DAON_TOKEN_ENDPOINT =
-            "https://wso2.oak.trustx.com/auth/realms/wso2/protocol/openid-connect/token";
 
     // OIDC claims request parameter sent to the Daon authorization endpoint.
     // Requests all IDV claims inside the id_token using the verified_claims structure.

@@ -24,6 +24,7 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.json.JSONObject;
 import org.wso2.carbon.extension.identity.verification.mgt.IdentityVerificationManager;
+import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.extension.identity.verification.mgt.exception.IdentityVerificationException;
 import org.wso2.carbon.extension.identity.verification.mgt.model.IdVClaim;
 import org.wso2.carbon.extension.identity.verification.provider.IdVProviderManager;
@@ -60,15 +61,15 @@ import static org.wso2.carbon.identity.verification.daon.api.common.Constants.Er
 import static org.wso2.carbon.identity.verification.daon.api.common.Constants.ErrorMessage.SERVER_ERROR_UPDATING_IDV_CLAIM_VERIFICATION_STATUS;
 import static org.wso2.carbon.identity.verification.daon.api.common.Util.getTenantId;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.CLAIMS_PARAM;
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.BASE_URL;
+import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.TOKEN_ENDPOINT_URL;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.CALLBACK_URL;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.CLIENT_ID;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.CLIENT_SECRET;
+import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.DAON_CALLBACK_URL_FORMAT;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.DAON_COMPLETED_AT;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.DAON_FLOW_STATUS;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.DAON_STATE;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.DAON_VERIFICATION_STATUS;
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.REDIRECT_URI;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.SCOPE;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.VERIFIED_CLAIMS_ID_TOKEN;
 
@@ -123,9 +124,12 @@ public class DaonCallbackService {
         IdVClaim[] claims = getClaimsByState(state, idvpId, tenantId);
         validateStateMatch(claims, state);
 
+        String redirectUri = IdentityUtil.getServerURL(
+                String.format(DAON_CALLBACK_URL_FORMAT, idvpId), true, true);
+
         JSONObject tokenResponse;
         try {
-            tokenResponse = DaonAPIClient.exchangeCodeForTokens(configProperties, code);
+            tokenResponse = DaonAPIClient.exchangeCodeForTokens(configProperties, code, redirectUri);
         } catch (DaonClientException e) {
             if (DaonConstants.ErrorMessage.ERROR_INVALID_OR_EXPIRED_CODE.getCode().equals(e.getErrorCode())) {
                 throw buildClientError(CLIENT_ERROR_INVALID_OR_EXPIRED_CODE, Response.Status.BAD_REQUEST);
@@ -185,8 +189,7 @@ public class DaonCallbackService {
 
         if (StringUtils.isBlank(props.get(CLIENT_ID))
                 || StringUtils.isBlank(props.get(CLIENT_SECRET))
-                || StringUtils.isBlank(props.get(BASE_URL))
-                || StringUtils.isBlank(props.get(REDIRECT_URI))
+                || StringUtils.isBlank(props.get(TOKEN_ENDPOINT_URL))
                 || StringUtils.isBlank(props.get(SCOPE))
                 || StringUtils.isBlank(props.get(CALLBACK_URL))) {
             throw buildServerError(SERVER_ERROR_IDV_PROVIDER_CONFIG_PROPERTIES_INVALID,
