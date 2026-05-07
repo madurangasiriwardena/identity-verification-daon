@@ -1,7 +1,7 @@
 {
   "payload": {
     "type": "DAON",
-    "name": "Daon",
+    "name": "Daon Identity Verification",
     "description": "Enable identity verification through Daon TrustX.",
     "image": "assets/images/logos/daon.svg",
     "isEnabled": true,

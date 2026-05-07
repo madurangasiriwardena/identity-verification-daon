@@ -9,8 +9,6 @@
 					"label": "Name",
 					"type": "text",
 					"required": true,
-					"defaultValue": "DAON",
-					"readOnly": true,
 					"data-componentid": "idvp-create-wizard-idvp-name",
 					"handlers": [
 						{
@@ -90,7 +88,6 @@
 							"label": "Name",
 							"type": "text",
 							"required": true,
-							"readOnly": true,
 							"data-componentid": "idvp-edit-form-idvp-name",
 							"helperText": "An unique name for the Identity Verification Provider."
 						},

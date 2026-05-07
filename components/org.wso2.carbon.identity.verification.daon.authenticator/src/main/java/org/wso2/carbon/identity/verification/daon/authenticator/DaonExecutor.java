@@ -47,7 +47,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.wso2.carbon.identity.organization.management.service.util.Utils.getTenantId;
 import static org.wso2.carbon.identity.verification.daon.authenticator.constants.DaonAuthenticatorConstants.*;
 
 /**
@@ -219,12 +218,8 @@ public class DaonExecutor extends OpenIDConnectExecutor {
             }
         }
 
-        try {
-            storeVerifiedClaimsInThreadLocal(extractedClaims);
-        } catch (IdVProviderMgtException e) {
-            throw new FlowEngineException("Error storing Daon verified claims in thread-local properties " +
-                    "for post-registration persistence.");
-        }
+        String idvpId = flowExecutionContext.getAuthenticatorProperties().get(DAON_IDVP_ID);
+        storeVerifiedClaimsInThreadLocal(extractedClaims, idvpId);
 
         return userAttributes;
     }
@@ -258,20 +253,10 @@ public class DaonExecutor extends OpenIDConnectExecutor {
         }
     }
 
-    private void storeVerifiedClaimsInThreadLocal(Map<String, String> verifiedClaims) throws IdVProviderMgtException {
+    private void storeVerifiedClaimsInThreadLocal(Map<String, String> verifiedClaims, String idvpId) {
 
         Map<String, Object> threadLocalProps = IdentityUtil.threadLocalProperties.get();
         threadLocalProps.put(THREAD_LOCAL_DAON_VERIFIED_CLAIMS, verifiedClaims);
-
-        IdVProvider idVProvider;
-
-        try {
-            idVProvider = DaonAuthenticatorDataHolder.getIdVProviderManager().getIdVProviderByName(
-                    DAON_IDV_PROVIDER_ID, getTenantId());
-        } catch (IdVProviderMgtException e) {
-            throw new IdVProviderMgtException("Error retrieving Daon Identity Verification Provider details for " +
-                    "thread-local storage of IDVP ID.", e.getMessage());
-        }
-        threadLocalProps.put(THREAD_LOCAL_DAON_IDVP_ID, idVProvider.getIdVProviderUuid());
+        threadLocalProps.put(THREAD_LOCAL_DAON_IDVP_ID, idvpId);
     }
 }
