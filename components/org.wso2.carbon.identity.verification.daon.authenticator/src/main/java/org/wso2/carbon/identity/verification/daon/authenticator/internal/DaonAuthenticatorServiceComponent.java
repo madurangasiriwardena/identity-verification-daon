@@ -30,12 +30,12 @@ import org.osgi.service.component.annotations.ReferencePolicy;
 import org.wso2.carbon.extension.identity.verification.mgt.IdentityVerificationManager;
 import org.wso2.carbon.extension.identity.verification.provider.IdVProviderManager;
 import org.wso2.carbon.identity.application.authentication.framework.ApplicationAuthenticator;
+import org.wso2.carbon.identity.flow.execution.engine.listener.FlowExecutionListener;
 import org.wso2.carbon.user.core.service.RealmService;
-import org.wso2.carbon.identity.event.handler.AbstractEventHandler;
 import org.wso2.carbon.identity.flow.execution.engine.graph.Executor;
 import org.wso2.carbon.identity.verification.daon.authenticator.DaonAuthenticator;
 import org.wso2.carbon.identity.verification.daon.authenticator.DaonExecutor;
-import org.wso2.carbon.identity.verification.daon.authenticator.DaonPostUserRegistrationHandler;
+import org.wso2.carbon.identity.verification.daon.authenticator.DaonRegistrationFlowCompletionListener;
 
 /**
  * OSGi service component for the Daon TrustX federated authenticator.
@@ -54,9 +54,10 @@ public class DaonAuthenticatorServiceComponent {
             ctxt.getBundleContext().registerService(
                     ApplicationAuthenticator.class.getName(), new DaonAuthenticator(), null);
             ctxt.getBundleContext().registerService(
-                    AbstractEventHandler.class.getName(), new DaonPostUserRegistrationHandler(), null);
-            ctxt.getBundleContext().registerService(
                     Executor.class.getName(), new DaonExecutor(), null);
+            ctxt.getBundleContext().registerService(
+                    FlowExecutionListener.class.getName(),
+                    new DaonRegistrationFlowCompletionListener(), null);
             if (LOG.isDebugEnabled()) {
                 LOG.debug("DaonAuthenticator bundle activated successfully.");
             }

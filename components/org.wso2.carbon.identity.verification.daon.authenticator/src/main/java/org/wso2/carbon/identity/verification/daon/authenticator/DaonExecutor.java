@@ -24,8 +24,6 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.oltu.oauth2.client.response.OAuthClientResponse;
 import org.json.JSONObject;
-import org.wso2.carbon.extension.identity.verification.mgt.exception.IdentityVerificationException;
-import org.wso2.carbon.extension.identity.verification.mgt.model.IdVClaim;
 import org.wso2.carbon.extension.identity.verification.provider.exception.IdVProviderMgtException;
 import org.wso2.carbon.extension.identity.verification.provider.model.IdVConfigProperty;
 import org.wso2.carbon.extension.identity.verification.provider.model.IdVProvider;
@@ -37,6 +35,7 @@ import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.flow.execution.engine.exception.FlowEngineException;
 import org.wso2.carbon.identity.flow.execution.engine.model.ExecutorResponse;
 import org.wso2.carbon.identity.flow.execution.engine.model.FlowExecutionContext;
+import org.wso2.carbon.identity.flow.execution.engine.model.FlowUser;
 import org.wso2.carbon.identity.verification.daon.authenticator.constants.DaonAuthenticatorConstants;
 import org.wso2.carbon.identity.verification.daon.authenticator.internal.DaonAuthenticatorDataHolder;
 import org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants;
@@ -45,6 +44,7 @@ import org.wso2.carbon.user.api.UserStoreException;
 import org.wso2.carbon.user.core.UniqueIDUserStoreManager;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -56,8 +56,9 @@ import static org.wso2.carbon.identity.verification.daon.authenticator.constants
  *
  * <p>Handles the OIDC authorization-code flow against Daon's token endpoint. The returned
  * ID token carries a nested {@code claims} object containing IDV attributes (name, birthdate,
- * document details, address). These are extracted and stored in thread-local properties for
- * deferred persistence by {@link DaonPostUserRegistrationHandler}.</p>
+ * document details, address). These are extracted and stored in the {@link FlowExecutionContext}
+ * for deferred persistence by {@link DaonRegistrationFlowCompletionListener} once the flow
+ * completes and the user ID is available.</p>
  */
 public class DaonExecutor extends OpenIDConnectExecutor {
 
@@ -191,9 +192,13 @@ public class DaonExecutor extends OpenIDConnectExecutor {
         }
 
         JSONObject daonClaims = verifiedClaims.getJSONObject(DaonAuthenticatorConstants.JWT_CLAIMS_OBJECT);
-        Map<String, String> reverseClaimMap = buildReverseClaimMapping(
-                flowExecutionContext.getAuthenticatorProperties().get(DAON_IDVP_ID),
-                flowExecutionContext.getTenantDomain());
+        String idvpId = flowExecutionContext.getAuthenticatorProperties().get(DAON_IDVP_ID);
+        Map<String, String> claimMappings = getIdvpClaimMappings(idvpId, flowExecutionContext.getTenantDomain());
+        Map<String, String> reverseClaimMap = new HashMap<>();
+        for (Map.Entry<String, String> entry : claimMappings.entrySet()) {
+            reverseClaimMap.put(entry.getValue(), entry.getKey()); // Daon name → WSO2 URI
+        }
+
         Map<String, String> extractedClaims = new HashMap<>();
         for (Object keyObj : daonClaims.keySet()) {
             String key = (String) keyObj;
@@ -212,30 +217,23 @@ public class DaonExecutor extends OpenIDConnectExecutor {
             extractedClaims.put(DaonConstants.PREFERRED_USERNAME_CLAIM_URI, preferredUsername);
         }
 
-        String extractedName = extractedClaims.get(
-                DaonAuthenticatorConstants.CLAIM_DIALECT_URI + "/family_name_and_given_name");
-        String givenName;
         if (flowExecutionContext.getFlowUser() != null) {
-            givenName = flowExecutionContext.getFlowUser().getClaim(
-                    "http://wso2.org/claims/givenname").toString().toLowerCase();
-            if (extractedName == null || !extractedName.toLowerCase().contains(givenName)) {
-                lockUserAccount(flowExecutionContext);
-                throw handleFlowEngineServerException("Identity verification failed: name mismatch. " +
-                        "User account has been locked.", null);
-            }
-            int tenantId = IdentityTenantUtil.getTenantId(flowExecutionContext.getTenantDomain());
-            String userId = flowExecutionContext.getFlowUser().getUserId();
-            List<IdVClaim> idVClaims = DaonPostUserRegistrationHandler.buildIdVClaims(userId, tenantId, extractedClaims);
-            try {
-                DaonAuthenticatorDataHolder.getIdentityVerificationManager()
-                        .addIdVClaims(userId, idVClaims, tenantId);
-            } catch (IdentityVerificationException e) {
-                throw new FlowEngineException("Error persisting Daon verified claims after user registration.");
+            boolean hasProfileClaims = claimMappings.keySet().stream()
+                    .anyMatch(uri -> flowExecutionContext.getFlowUser().getClaim(uri) != null);
+            if (hasProfileClaims) {
+                // Invited user flow: profile claims are pre-populated; validate against Daon-verified values.
+                if (!validateProfileClaimsAgainstVerified(
+                        flowExecutionContext.getFlowUser(), extractedClaims, claimMappings)) {
+                    lockUserAccount(flowExecutionContext);
+                    throw handleFlowEngineServerException(
+                            "Identity verification failed: profile claim mismatch. User account has been locked.", null);
+                }
             }
         }
-
-        String idvpId = flowExecutionContext.getAuthenticatorProperties().get(DAON_IDVP_ID);
-        storeVerifiedClaimsInThreadLocal(extractedClaims, idvpId);
+        // Store in context for DaonRegistrationFlowCompletionListener, which persists to the
+        // IDV_CLAIM table once the flow completes and the user ID is guaranteed available.
+        flowExecutionContext.setProperty(FLOW_CONTEXT_DAON_VERIFIED_CLAIMS, extractedClaims);
+        flowExecutionContext.setProperty(FLOW_CONTEXT_DAON_IDVP_ID, idvpId);
 
         return userAttributes;
     }
@@ -258,9 +256,9 @@ public class DaonExecutor extends OpenIDConnectExecutor {
                             .getTenantUserRealm(tenantId)
                             .getUserStoreManager();
             if (usm instanceof UniqueIDUserStoreManager) {
-//                ((UniqueIDUserStoreManager) usm).setUserClaimValueWithID(
-//                        userId, ACCOUNT_LOCKED_CLAIM, "true", null);
-                LOG.warn("User account locked due to IDV name mismatch. User ID: " + userId);
+                ((UniqueIDUserStoreManager) usm).setUserClaimValueWithID(
+                        userId, ACCOUNT_LOCKED_CLAIM, "true", null);
+                LOG.warn("User account locked due to IDV claim mismatch. User ID: " + userId);
             } else {
                 LOG.warn("UniqueIDUserStoreManager not available; account not locked for user: " + userId);
             }
@@ -269,31 +267,66 @@ public class DaonExecutor extends OpenIDConnectExecutor {
         }
     }
 
-    private Map<String, String> buildReverseClaimMapping(String idvpId, String tenantDomain) {
+    private Map<String, String> getIdvpClaimMappings(String idvpId, String tenantDomain) {
 
-        Map<String, String> reverseMap = new HashMap<>();
         if (StringUtils.isBlank(idvpId)) {
-            return reverseMap;
+            return Collections.emptyMap();
         }
         try {
             int tenantId = IdentityTenantUtil.getTenantId(tenantDomain);
             IdVProvider idVProvider = DaonAuthenticatorDataHolder.getIdVProviderManager()
                     .getIdVProvider(idvpId, tenantId);
             if (idVProvider != null && idVProvider.getClaimMappings() != null) {
-                for (Map.Entry<String, String> entry : idVProvider.getClaimMappings().entrySet()) {
-                    reverseMap.put(entry.getValue(), entry.getKey()); // Daon name → WSO2 URI
-                }
+                return idVProvider.getClaimMappings();
             }
         } catch (IdVProviderMgtException e) {
             LOG.warn("Failed to load IDVP claim mappings; falling back to Daon dialect URIs.", e);
         }
-        return reverseMap;
+        return Collections.emptyMap();
     }
 
-    private void storeVerifiedClaimsInThreadLocal(Map<String, String> verifiedClaims, String idvpId) {
+    /**
+     * Validates each configured IDVP claim URI that has a value in the user's profile against the
+     * corresponding Daon-verified value in {@code extractedClaims}.
+     *
+     * <p>For name claims where Daon returns a combined {@code family_name_and_given_name} field
+     * instead of separate {@code given_name}/{@code family_name}, the combined field is used as
+     * a fallback (contains check).
+     *
+     * @return {@code true} if all present profile claims match their verified counterparts,
+     *         {@code false} if any mismatch is detected.
+     */
+    private boolean validateProfileClaimsAgainstVerified(
+            FlowUser flowUser,
+            Map<String, String> extractedClaims,
+            Map<String, String> claimMappings) {
 
-        Map<String, Object> threadLocalProps = IdentityUtil.threadLocalProperties.get();
-        threadLocalProps.put(THREAD_LOCAL_DAON_VERIFIED_CLAIMS, verifiedClaims);
-        threadLocalProps.put(THREAD_LOCAL_DAON_IDVP_ID, idvpId);
+        for (String wso2Uri : claimMappings.keySet()) {
+            Object profileClaimObj = flowUser.getClaim(wso2Uri);
+            if (profileClaimObj == null) {
+                continue;
+            }
+            String profileValue = profileClaimObj.toString().trim();
+            if (StringUtils.isBlank(profileValue)) {
+                continue;
+            }
+            String verifiedValue = extractedClaims.get(wso2Uri);
+            if (verifiedValue == null) {
+                String combinedName = extractedClaims.get(
+                        DaonAuthenticatorConstants.CLAIM_DIALECT_URI + "/family_name_and_given_name");
+                if (combinedName != null && combinedName.toLowerCase().contains(profileValue.toLowerCase())) {
+                    continue;
+                }
+                LOG.warn("No verified value available for claim URI: " + wso2Uri + "; skipping validation.");
+                continue;
+            }
+            if (!verifiedValue.toLowerCase().contains(profileValue.toLowerCase())) {
+                LOG.warn("Claim mismatch for URI: " + wso2Uri);
+                return false;
+            }
+        }
+        return true;
     }
+
 }
+

@@ -39,11 +39,11 @@ public class DaonAuthenticatorConstants {
     public static final String COMMON_AUTH_ENDPOINT = "/commonauth";
 
     /**
-     * Thread-local keys used to pass verified claim data from the authenticator
-     * to the post-user-registration event handler within the same request thread.
+     * FlowExecutionContext property keys used to pass verified claim data from {@code DaonExecutor}
+     * to {@code DaonRegistrationFlowCompletionListener} within the same flow.
      */
-    public static final String THREAD_LOCAL_DAON_VERIFIED_CLAIMS = "DAON_IDV_CLAIMS";
-    public static final String THREAD_LOCAL_DAON_IDVP_ID = "DAON_IDV_IDVP_ID";
+    public static final String FLOW_CONTEXT_DAON_VERIFIED_CLAIMS = "DAON_IDV_CLAIMS";
+    public static final String FLOW_CONTEXT_DAON_IDVP_ID = "DAON_IDV_IDVP_ID";
 
     /**
      * Query parameters on the OIDC callback request.
