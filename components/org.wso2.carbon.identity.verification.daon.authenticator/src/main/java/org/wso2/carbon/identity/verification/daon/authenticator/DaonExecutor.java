@@ -24,6 +24,9 @@ import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.oltu.oauth2.client.response.OAuthClientResponse;
 import org.json.JSONObject;
+import org.wso2.carbon.extension.identity.verification.mgt.IdentityVerificationManager;
+import org.wso2.carbon.extension.identity.verification.mgt.exception.IdentityVerificationException;
+import org.wso2.carbon.extension.identity.verification.mgt.model.IdVClaim;
 import org.wso2.carbon.extension.identity.verification.provider.exception.IdVProviderMgtException;
 import org.wso2.carbon.extension.identity.verification.provider.model.IdVConfigProperty;
 import org.wso2.carbon.extension.identity.verification.provider.model.IdVProvider;
@@ -89,7 +92,11 @@ public class DaonExecutor extends OpenIDConnectExecutor {
     public ExecutorResponse execute(FlowExecutionContext flowExecutionContext) {
 
         flowExecutionContext.setPortalUrl("https://is.test.com:9443/accounts/register");
-        injectIdvpConfigs(flowExecutionContext);
+        if (FLOW_TYPE_PASSWORD_RECOVERY.equals(flowExecutionContext.getFlowType())) {
+            injectPasswordRecoveryConfigs(flowExecutionContext);
+        } else {
+            injectIdvpConfigs(flowExecutionContext);
+        }
         return super.execute(flowExecutionContext);
     }
 
@@ -134,10 +141,93 @@ public class DaonExecutor extends OpenIDConnectExecutor {
         }
     }
 
+    private void injectPasswordRecoveryConfigs(FlowExecutionContext flowExecutionContext) {
+
+        Map<String, String> props = flowExecutionContext.getAuthenticatorProperties();
+        String idvpId = props.get(DAON_IDVP_ID);
+        if (StringUtils.isBlank(idvpId)) {
+            LOG.warn("daon_idvp_id not configured; executor cannot resolve IDVP config for password recovery.");
+            return;
+        }
+        try {
+            int tenantId = IdentityTenantUtil.getTenantId(flowExecutionContext.getTenantDomain());
+            IdVProvider idVProvider = DaonAuthenticatorDataHolder.getIdVProviderManager()
+                    .getIdVProvider(idvpId, tenantId);
+            if (idVProvider == null) {
+                LOG.warn("No IDVP found for id: " + idvpId + "; executor may fail.");
+                return;
+            }
+            Map<String, String> idvpProps = new HashMap<>();
+            for (IdVConfigProperty prop : idVProvider.getIdVConfigProperties()) {
+                idvpProps.put(prop.getName(), prop.getValue());
+            }
+            Map<String, String> enriched = new HashMap<>(props);
+            enriched.put(OIDCAuthenticatorConstants.CLIENT_ID, props.get(LOGIN_CLIENT_ID));
+            enriched.put(OIDCAuthenticatorConstants.CLIENT_SECRET, props.get(LOGIN_CLIENT_SECRET));
+            enriched.put(IdentityApplicationConstants.OAuth2.CALLBACK_URL,
+                    IdentityUtil.getServerURL(String.format(DaonConstants.DAON_CALLBACK_URL_FORMAT, idvpId), true, true));
+            enriched.put(DaonConstants.AUTHORIZATION_ENDPOINT_URL, idvpProps.get(DaonConstants.AUTHORIZATION_ENDPOINT_URL));
+            enriched.put(DaonConstants.TOKEN_ENDPOINT_URL, idvpProps.get(DaonConstants.TOKEN_ENDPOINT_URL));
+            String loginHint = resolveLoginHint(flowExecutionContext, idvpId, tenantId);
+            if (StringUtils.isNotBlank(loginHint)) {
+                enriched.put(DAON_LOGIN_HINT, loginHint);
+            }
+            flowExecutionContext.setAuthenticatorProperties(enriched);
+        } catch (IdVProviderMgtException e) {
+            LOG.error("Failed to look up IDVP configs for id: " + idvpId + "; executor may fail.", e);
+        }
+    }
+
+    private String resolveLoginHint(FlowExecutionContext context, String idvpId, int tenantId) {
+
+        if (context.getFlowUser() == null) {
+            return null;
+        }
+        String userId = context.getFlowUser().getUserId();
+        if (StringUtils.isBlank(userId)) {
+            Object userIdClaim = context.getFlowUser().getClaim(USER_ID_CLAIM);
+            if (userIdClaim != null) {
+                userId = userIdClaim.toString();
+            }
+        }
+        if (StringUtils.isBlank(userId)) {
+            LOG.warn("Cannot resolve user ID for login_hint lookup; proceeding without it.");
+            return null;
+        }
+        IdentityVerificationManager manager = DaonAuthenticatorDataHolder.getIdentityVerificationManager();
+        if (manager == null) {
+            LOG.warn("IdentityVerificationManager unavailable; proceeding without login_hint.");
+            return null;
+        }
+        try {
+            IdVClaim claim = manager.getIdVClaim(userId, DaonConstants.PREFERRED_USERNAME_CLAIM_URI, idvpId, tenantId);
+            if (claim != null && claim.getMetadata() != null) {
+                Object val = claim.getMetadata().get(DaonConstants.JWT_PREFERRED_USERNAME_CLAIM);
+                if (val != null && StringUtils.isNotBlank(val.toString())) {
+                    return val.toString();
+                }
+            }
+        } catch (IdentityVerificationException e) {
+            LOG.warn("Error retrieving preferred_username for login_hint; proceeding without it.", e);
+        }
+        return null;
+    }
+
     @Override
     public Map<String, String> getAdditionalQueryParams(Map<String, String> authenticatorProperties) {
 
         Map<String, String> params = new HashMap<>();
+        String loginHint = authenticatorProperties.get(DAON_LOGIN_HINT);
+        if (StringUtils.isNotBlank(loginHint)) {
+            // Password recovery flow: face auth with login_hint, no verified_claims needed.
+            try {
+                params.put("login_hint", java.net.URLEncoder.encode(loginHint, "UTF-8"));
+            } catch (java.io.UnsupportedEncodingException e) {
+                LOG.warn("Failed to URL-encode Daon login_hint parameter.", e);
+            }
+            return params;
+        }
+        // Registration / invited user flow: request verified_claims from Daon.
         String claimNamesStr = authenticatorProperties.get(DAON_CLAIM_NAMES);
         if (StringUtils.isBlank(claimNamesStr)) {
             return params;
@@ -156,6 +246,10 @@ public class DaonExecutor extends OpenIDConnectExecutor {
     @Override
     protected Map<String, Object> resolveUserAttributes(FlowExecutionContext flowExecutionContext, String code)
             throws FlowEngineException {
+
+        if (FLOW_TYPE_PASSWORD_RECOVERY.equals(flowExecutionContext.getFlowType())) {
+            return resolvePasswordRecoveryAttributes(flowExecutionContext, code);
+        }
 
         OAuthClientResponse oAuthResponse = requestAccessToken(flowExecutionContext, code);
         resolveAccessToken(oAuthResponse);
@@ -236,6 +330,39 @@ public class DaonExecutor extends OpenIDConnectExecutor {
         flowExecutionContext.setProperty(FLOW_CONTEXT_DAON_IDVP_ID, idvpId);
 
         return userAttributes;
+    }
+
+    private Map<String, Object> resolvePasswordRecoveryAttributes(FlowExecutionContext flowExecutionContext,
+                                                                   String code) throws FlowEngineException {
+
+        OAuthClientResponse oAuthResponse = requestAccessToken(flowExecutionContext, code);
+        resolveAccessToken(oAuthResponse);
+
+        String idToken = oAuthResponse.getParam(OIDCAuthenticatorConstants.ID_TOKEN);
+        if (StringUtils.isBlank(idToken)) {
+            throw handleFlowEngineServerException("ID token is empty or null.", null);
+        }
+
+        JSONObject idTokenPayload;
+        try {
+            idTokenPayload = DaonJwtUtil.decodeJwtPayload(idToken);
+        } catch (IllegalArgumentException e) {
+            throw handleFlowEngineServerException(e.getMessage(), e);
+        }
+
+        String returnedSubject = idTokenPayload.optString(DaonConstants.JWT_PREFERRED_USERNAME_CLAIM,
+                idTokenPayload.optString(DaonAuthenticatorConstants.JWT_SUBJECT_CLAIM, null));
+        if (StringUtils.isBlank(returnedSubject)) {
+            throw handleFlowEngineServerException("No subject identity found in Daon ID token.", null);
+        }
+
+        String expectedLoginHint = flowExecutionContext.getAuthenticatorProperties().get(DAON_LOGIN_HINT);
+        if (StringUtils.isNotBlank(expectedLoginHint) && !expectedLoginHint.equals(returnedSubject)) {
+            throw handleFlowEngineServerException(
+                    "Identity verification failed: returned subject does not match the expected user.", null);
+        }
+
+        return new HashMap<>();
     }
 
     private void lockUserAccount(FlowExecutionContext context) {

@@ -68,6 +68,15 @@ public class DaonAuthenticatorConstants {
      */
     public static final String DAON_CLAIM_NAMES = "daon_claim_names";
 
+    /**
+     * Property key used to carry the resolved {@code login_hint} (Daon {@code preferred_username})
+     * into {@code getAdditionalQueryParams()} for the password recovery face-auth flow.
+     */
+    public static final String DAON_LOGIN_HINT = "daon_login_hint";
+
+    /** Flow type string returned by {@code FlowExecutionContext.getFlowType()} for password recovery. */
+    public static final String FLOW_TYPE_PASSWORD_RECOVERY = "PASSWORD_RECOVERY";
+
     // Claim dialect URI for Daon-specific claims
     public static final String CLAIM_DIALECT_URI = "http://wso2.org/daon/claims";
 
