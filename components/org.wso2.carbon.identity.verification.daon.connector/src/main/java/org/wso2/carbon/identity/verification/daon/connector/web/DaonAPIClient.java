@@ -30,11 +30,12 @@ import org.wso2.carbon.identity.verification.daon.connector.exception.DaonServer
 import java.io.IOException;
 import java.net.URISyntaxException;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
-import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.ACCESS_TOKEN;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.AUTHORIZATION_ENDPOINT_URL;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.CLAIMS_PARAM;
 import static org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants.CLIENT_ID;
@@ -100,21 +101,45 @@ public class DaonAPIClient {
     /**
      * Builds the OIDC {@code claims} request parameter JSON for the given Daon claim names.
      *
+     * <p>If the list contains {@code given_name} or {@code family_name},
+     * {@code family_name_and_given_name} is automatically added as a fallback. Some identity
+     * documents store the full name as a single field; without this fallback Daon would return
+     * neither name claim for those documents.
+     *
      * <pre>
      * {
      *   "id_token": {
      *     "verified_claims": {
      *       "verification": { "trust_framework": "daon-identify-1" },
-     *       "claims": { "given_name": null, "family_name": null, ... }
+     *       "claims": { "given_name": null, "family_name": null, "family_name_and_given_name": null, ... }
      *     }
      *   }
      * }
      * </pre>
      */
-    private static String buildClaimsParam(List<String> daonClaimNames) {
+    private static final List<String> DOCUMENT_CLAIMS = Arrays.asList(
+            "document_type",
+            "document_classification",
+            "document_date_of_expiry",
+            "document_number",
+            "document_personal_number"
+    );
+
+    public static String buildClaimsParam(List<String> daonClaimNames) {
+
+        List<String> effectiveNames = new ArrayList<>(daonClaimNames);
+        if ((effectiveNames.contains("given_name") || effectiveNames.contains("family_name"))
+                && !effectiveNames.contains("family_name_and_given_name")) {
+            effectiveNames.add("family_name_and_given_name");
+        }
+        for (String docClaim : DOCUMENT_CLAIMS) {
+            if (!effectiveNames.contains(docClaim)) {
+                effectiveNames.add(docClaim);
+            }
+        }
 
         JSONObject claimsObj = new JSONObject();
-        for (String claimName : daonClaimNames) {
+        for (String claimName : effectiveNames) {
             claimsObj.put(claimName, JSONObject.NULL);
         }
         JSONObject verification = new JSONObject().put(TRUST_FRAMEWORK, TRUST_FRAMEWORK_VALUE);

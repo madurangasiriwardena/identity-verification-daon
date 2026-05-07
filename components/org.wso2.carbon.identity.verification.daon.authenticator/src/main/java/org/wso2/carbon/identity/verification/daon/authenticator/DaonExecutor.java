@@ -40,9 +40,11 @@ import org.wso2.carbon.identity.flow.execution.engine.model.FlowExecutionContext
 import org.wso2.carbon.identity.verification.daon.authenticator.constants.DaonAuthenticatorConstants;
 import org.wso2.carbon.identity.verification.daon.authenticator.internal.DaonAuthenticatorDataHolder;
 import org.wso2.carbon.identity.verification.daon.connector.constants.DaonConstants;
+import org.wso2.carbon.identity.verification.daon.connector.web.DaonAPIClient;
 import org.wso2.carbon.user.api.UserStoreException;
 import org.wso2.carbon.user.core.UniqueIDUserStoreManager;
 
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -121,6 +123,10 @@ public class DaonExecutor extends OpenIDConnectExecutor {
             if (StringUtils.isNotBlank(scope)) {
                 enriched.put(EXECUTOR_SCOPES, scope);
             }
+            Map<String, String> claimMappings = idVProvider.getClaimMappings();
+            if (claimMappings != null && !claimMappings.isEmpty()) {
+                enriched.put(DAON_CLAIM_NAMES, String.join(",", claimMappings.values()));
+            }
             flowExecutionContext.setAuthenticatorProperties(enriched);
         } catch (IdVProviderMgtException e) {
             LOG.error("Failed to look up IDVP configs for id: " + idvpId + "; executor may fail.", e);
@@ -131,9 +137,14 @@ public class DaonExecutor extends OpenIDConnectExecutor {
     public Map<String, String> getAdditionalQueryParams(Map<String, String> authenticatorProperties) {
 
         Map<String, String> params = new HashMap<>();
+        String claimNamesStr = authenticatorProperties.get(DAON_CLAIM_NAMES);
+        if (StringUtils.isBlank(claimNamesStr)) {
+            return params;
+        }
+        List<String> claimNames = Arrays.asList(claimNamesStr.split(","));
         try {
             params.put("claims", java.net.URLEncoder.encode(
-                    DaonAuthenticatorConstants.DAON_CLAIMS_REQUEST_JSON, "UTF-8"));
+                    DaonAPIClient.buildClaimsParam(claimNames), "UTF-8"));
         } catch (java.io.UnsupportedEncodingException e) {
             // UTF-8 is always supported; this branch is unreachable
             LOG.warn("Failed to URL-encode Daon claims request parameter.", e);
@@ -180,6 +191,9 @@ public class DaonExecutor extends OpenIDConnectExecutor {
         }
 
         JSONObject daonClaims = verifiedClaims.getJSONObject(DaonAuthenticatorConstants.JWT_CLAIMS_OBJECT);
+        Map<String, String> reverseClaimMap = buildReverseClaimMapping(
+                flowExecutionContext.getAuthenticatorProperties().get(DAON_IDVP_ID),
+                flowExecutionContext.getTenantDomain());
         Map<String, String> extractedClaims = new HashMap<>();
         for (Object keyObj : daonClaims.keySet()) {
             String key = (String) keyObj;
@@ -187,7 +201,8 @@ public class DaonExecutor extends OpenIDConnectExecutor {
             if (claimValue == null) {
                 continue;
             }
-            String claimUri = DaonAuthenticatorConstants.CLAIM_DIALECT_URI + "/" + key;
+            String claimUri = reverseClaimMap.getOrDefault(key,
+                    DaonAuthenticatorConstants.CLAIM_DIALECT_URI + "/" + key);
             extractedClaims.put(claimUri, claimValue);
         }
 
@@ -197,7 +212,8 @@ public class DaonExecutor extends OpenIDConnectExecutor {
             extractedClaims.put(DaonConstants.PREFERRED_USERNAME_CLAIM_URI, preferredUsername);
         }
 
-        String extractedName = extractedClaims.get("http://wso2.org/daon/claims/family_name_and_given_name");
+        String extractedName = extractedClaims.get(
+                DaonAuthenticatorConstants.CLAIM_DIALECT_URI + "/family_name_and_given_name");
         String givenName;
         if (flowExecutionContext.getFlowUser() != null) {
             givenName = flowExecutionContext.getFlowUser().getClaim(
@@ -251,6 +267,27 @@ public class DaonExecutor extends OpenIDConnectExecutor {
         } catch (UserStoreException e) {
             LOG.error("Failed to lock account for user: " + userId, e);
         }
+    }
+
+    private Map<String, String> buildReverseClaimMapping(String idvpId, String tenantDomain) {
+
+        Map<String, String> reverseMap = new HashMap<>();
+        if (StringUtils.isBlank(idvpId)) {
+            return reverseMap;
+        }
+        try {
+            int tenantId = IdentityTenantUtil.getTenantId(tenantDomain);
+            IdVProvider idVProvider = DaonAuthenticatorDataHolder.getIdVProviderManager()
+                    .getIdVProvider(idvpId, tenantId);
+            if (idVProvider != null && idVProvider.getClaimMappings() != null) {
+                for (Map.Entry<String, String> entry : idVProvider.getClaimMappings().entrySet()) {
+                    reverseMap.put(entry.getValue(), entry.getKey()); // Daon name → WSO2 URI
+                }
+            }
+        } catch (IdVProviderMgtException e) {
+            LOG.warn("Failed to load IDVP claim mappings; falling back to Daon dialect URIs.", e);
+        }
+        return reverseMap;
     }
 
     private void storeVerifiedClaimsInThreadLocal(Map<String, String> verifiedClaims, String idvpId) {

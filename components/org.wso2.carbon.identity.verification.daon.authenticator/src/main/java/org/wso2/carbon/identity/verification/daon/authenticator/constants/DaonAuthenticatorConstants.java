@@ -61,29 +61,12 @@ public class DaonAuthenticatorConstants {
     public static final String LOGIN_CLIENT_SECRET = "daon_login_client_secret";
     public static final String EXECUTOR_SCOPES = "Scopes";
 
-    // OIDC claims request parameter sent to the Daon authorization endpoint.
-    // Requests all IDV claims inside the id_token using the verified_claims structure.
-    //TODO improve this to build this dynamically
-    public static final String DAON_CLAIMS_REQUEST_JSON =
-            "{\"id_token\":{\"verified_claims\":{" +
-                    "\"verification\":{\"trust_framework\":\"daon-identify-1\"}," +
-                    "\"claims\":{" +
-                    "\"family_name_and_given_name\":null," +
-                    "\"birthdate\":null," +
-                    "\"nationality\":null," +
-                    "\"nationality_code\":null," +
-                    "\"given_name\":null," +
-                    "\"family_name\":null," +
-                    "\"first_family_name\":null," +
-                    "\"second_family_name\":null," +
-                    "\"document_type\":null," +
-                    "\"document_classification\":null," +
-                    "\"document_date_of_expiry\":null," +
-                    "\"document_number\":null," +
-                    "\"document_personal_number\":null," +
-                    "\"address\":null" +
-                    "}}}}";
-
+    /**
+     * Property key used to pass the comma-separated list of Daon claim names (from the IDVP
+     * claim mappings) through the flow context so {@code getAdditionalQueryParams()} can build
+     * the {@code claims} request parameter dynamically.
+     */
+    public static final String DAON_CLAIM_NAMES = "daon_claim_names";
 
     // Claim dialect URI for Daon-specific claims
     public static final String CLAIM_DIALECT_URI = "http://wso2.org/daon/claims";
