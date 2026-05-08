@@ -30,6 +30,7 @@ import org.osgi.service.component.annotations.ReferencePolicy;
 import org.wso2.carbon.extension.identity.verification.mgt.IdentityVerificationManager;
 import org.wso2.carbon.extension.identity.verification.provider.IdVProviderManager;
 import org.wso2.carbon.identity.application.authentication.framework.ApplicationAuthenticator;
+import org.wso2.carbon.identity.organization.management.service.OrganizationManager;
 import org.wso2.carbon.identity.flow.execution.engine.listener.FlowExecutionListener;
 import org.wso2.carbon.user.core.service.RealmService;
 import org.wso2.carbon.identity.flow.execution.engine.graph.Executor;
@@ -120,5 +121,21 @@ public class DaonAuthenticatorServiceComponent {
     protected void unsetRealmService(RealmService realmService) {
 
         DaonAuthenticatorDataHolder.setRealmService(null);
+    }
+
+    @Reference(
+            name = "OrganizationManager",
+            service = OrganizationManager.class,
+            cardinality = ReferenceCardinality.OPTIONAL,
+            policy = ReferencePolicy.DYNAMIC,
+            unbind = "unsetOrganizationManager")
+    protected void setOrganizationManager(OrganizationManager organizationManager) {
+
+        DaonAuthenticatorDataHolder.setOrganizationManager(organizationManager);
+    }
+
+    protected void unsetOrganizationManager(OrganizationManager organizationManager) {
+
+        DaonAuthenticatorDataHolder.setOrganizationManager(null);
     }
 }

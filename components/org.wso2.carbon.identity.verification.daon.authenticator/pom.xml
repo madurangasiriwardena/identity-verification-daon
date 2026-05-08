@@ -81,6 +81,11 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>org.wso2.carbon.identity.organization.management.core</groupId>
+            <artifactId>org.wso2.carbon.identity.organization.management.service</artifactId>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>org.wso2.carbon.identity.verification</groupId>
             <artifactId>org.wso2.carbon.identity.verification.daon.connector</artifactId>
             <scope>provided</scope>
@@ -152,6 +157,10 @@
                             version="${carbon.identity.package.import.version.range}",
                             org.wso2.carbon.identity.core.util.*;
                             version="${carbon.identity.package.import.version.range}",
+                            org.wso2.carbon.identity.organization.management.service;
+                            version="${identity.organization.management.imp.pkg.version.range}",
+                            org.wso2.carbon.utils.multitenancy;
+                            version="${carbon.kernel.package.import.version.range}",
                             org.wso2.carbon.identity.organization.management.service.util;
                             version="${identity.organization.management.imp.pkg.version.range}",
                             org.wso2.carbon.identity.flow.execution.engine.*,

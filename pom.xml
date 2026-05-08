@@ -222,6 +222,11 @@
                 <version>${commons-lang3.version}</version>
             </dependency>
             <dependency>
+                <groupId>org.wso2.carbon.identity.organization.management.core</groupId>
+                <artifactId>org.wso2.carbon.identity.organization.management.service</artifactId>
+                <version>${identity.organization.management.service.version}</version>
+            </dependency>
+            <dependency>
                 <groupId>org.wso2.carbon.identity.verification</groupId>
                 <artifactId>org.wso2.carbon.identity.verification.daon.connector</artifactId>
                 <version>${project.version}</version>
@@ -391,6 +396,7 @@
         <javax.ws.rs-api.version>2.1.1</javax.ws.rs-api.version>
         <slf4j.version>1.7.22</slf4j.version>
         <carbon.identity.framework.version>7.3.36</carbon.identity.framework.version>
+        <identity.organization.management.service.version>1.1.60</identity.organization.management.service.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <org.eclipse.osgi.services.version>3.3.100.v20130513-1956</org.eclipse.osgi.services.version>
         <org.eclipse.osgi.version>3.9.1.v20130814-1242</org.eclipse.osgi.version>

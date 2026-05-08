@@ -37,6 +37,9 @@ import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
 import org.wso2.carbon.identity.flow.execution.engine.exception.FlowEngineException;
 import org.wso2.carbon.identity.flow.execution.engine.model.ExecutorResponse;
+import org.wso2.carbon.identity.organization.management.service.OrganizationManager;
+import org.wso2.carbon.identity.organization.management.service.util.OrganizationManagementUtil;
+import org.wso2.carbon.utils.multitenancy.MultitenantConstants;
 import org.wso2.carbon.identity.flow.execution.engine.model.FlowExecutionContext;
 import org.wso2.carbon.identity.flow.execution.engine.model.FlowUser;
 import org.wso2.carbon.identity.verification.daon.authenticator.constants.DaonAuthenticatorConstants;
@@ -91,7 +94,7 @@ public class DaonExecutor extends OpenIDConnectExecutor {
     @Override
     public ExecutorResponse execute(FlowExecutionContext flowExecutionContext) {
 
-        flowExecutionContext.setPortalUrl("https://is.test.com:9443/accounts/register");
+        flowExecutionContext.setPortalUrl(buildPortalUrl(flowExecutionContext.getTenantDomain()));
         if (FLOW_TYPE_PASSWORD_RECOVERY.equals(flowExecutionContext.getFlowType())) {
             injectPasswordRecoveryConfigs(flowExecutionContext);
         } else {
@@ -391,6 +394,26 @@ public class DaonExecutor extends OpenIDConnectExecutor {
             }
         } catch (UserStoreException e) {
             LOG.error("Failed to lock account for user: " + userId, e);
+        }
+    }
+
+    private String buildPortalUrl(String tenantDomain) {
+
+        try {
+            if (MultitenantConstants.SUPER_TENANT_DOMAIN_NAME.equals(tenantDomain)) {
+                return IdentityUtil.getServerURL("/accounts/register", true, true);
+            }
+            if (OrganizationManagementUtil.isOrganization(tenantDomain)) {
+                OrganizationManager orgManager = DaonAuthenticatorDataHolder.getOrganizationManager();
+                if (orgManager != null) {
+                    String orgId = orgManager.resolveOrganizationId(tenantDomain);
+                    return IdentityUtil.getServerURL("/o/" + orgId + "/accounts/register", true, true);
+                }
+            }
+            return IdentityUtil.getServerURL("/t/" + tenantDomain + "/accounts/register", true, true);
+        } catch (Exception e) {
+            LOG.warn("Could not build portal URL for tenant: " + tenantDomain + "; falling back to default.", e);
+            return IdentityUtil.getServerURL("/accounts/register", true, true);
         }
     }
 
