@@ -49,11 +49,7 @@ $IS_HOME/repository/deployment/server/webapps/
 cp -r ui-metadata/daon \
 $IS_HOME/repository/resources/identity/extensions/identity-verification-providers/
 
-# UI metadata — Daon Face Auth (federated authenticator connection)
-cp -r ui-metadata/daon-face-auth \
-$IS_HOME/repository/resources/identity/extensions/connections/
-
-# Daon logo (shared by both the IdVP and the Face Auth connection)
+# Daon logo
 cp ui-metadata/assets/images/logos/daon.svg \
 $IS_HOME/repository/deployment/server/webapps/console/resources/connections/assets/images/logos/
 ```
