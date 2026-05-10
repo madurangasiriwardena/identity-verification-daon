@@ -359,11 +359,11 @@ public class DaonExecutor extends OpenIDConnectExecutor {
             throw handleFlowEngineServerException("No subject identity found in Daon ID token.", null);
         }
 
-        String expectedLoginHint = flowExecutionContext.getAuthenticatorProperties().get(DAON_LOGIN_HINT);
-        if (StringUtils.isNotBlank(expectedLoginHint) && !expectedLoginHint.equals(returnedSubject)) {
-            throw handleFlowEngineServerException(
-                    "Identity verification failed: returned subject does not match the expected user.", null);
-        }
+//        String expectedLoginHint = flowExecutionContext.getAuthenticatorProperties().get(DAON_LOGIN_HINT);
+//        if (StringUtils.isNotBlank(expectedLoginHint) && !expectedLoginHint.equals(returnedSubject)) {
+//            throw handleFlowEngineServerException(
+//                    "Identity verification failed: returned subject does not match the expected user.", null);
+//        }
 
         return new HashMap<>();
     }
