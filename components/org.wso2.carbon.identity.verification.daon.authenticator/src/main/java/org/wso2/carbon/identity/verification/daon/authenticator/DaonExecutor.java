@@ -35,6 +35,7 @@ import org.wso2.carbon.identity.application.authenticator.oidc.OpenIDConnectExec
 import org.wso2.carbon.identity.application.common.util.IdentityApplicationConstants;
 import org.wso2.carbon.identity.core.util.IdentityTenantUtil;
 import org.wso2.carbon.identity.core.util.IdentityUtil;
+import org.wso2.carbon.identity.flow.execution.engine.Constants;
 import org.wso2.carbon.identity.flow.execution.engine.exception.FlowEngineException;
 import org.wso2.carbon.identity.flow.execution.engine.model.ExecutorResponse;
 import org.wso2.carbon.identity.organization.management.service.OrganizationManager;
@@ -100,7 +101,16 @@ public class DaonExecutor extends OpenIDConnectExecutor {
         } else {
             injectIdvpConfigs(flowExecutionContext);
         }
-        return super.execute(flowExecutionContext);
+        ExecutorResponse response = super.execute(flowExecutionContext);
+        if (Boolean.TRUE.equals(flowExecutionContext.getProperty(DAON_CLAIM_MISMATCH_PROPERTY))) {
+            ExecutorResponse errorResponse = new ExecutorResponse();
+            errorResponse.setResult(Constants.ExecutorStatus.STATUS_USER_ERROR);
+            errorResponse.setErrorMessage(
+                    "The details in your profile do not match the identity verified by Daon. " +
+                    "Your account has been locked. Please contact support.");
+            return errorResponse;
+        }
+        return response;
     }
 
     private void injectIdvpConfigs(FlowExecutionContext flowExecutionContext) {
@@ -322,8 +332,8 @@ public class DaonExecutor extends OpenIDConnectExecutor {
                 if (!validateProfileClaimsAgainstVerified(
                         flowExecutionContext.getFlowUser(), extractedClaims, claimMappings)) {
                     lockUserAccount(flowExecutionContext);
-                    throw handleFlowEngineServerException(
-                            "Identity verification failed: profile claim mismatch. User account has been locked.", null);
+                    flowExecutionContext.setProperty(DAON_CLAIM_MISMATCH_PROPERTY, Boolean.TRUE);
+                    return userAttributes;
                 }
             }
         }
@@ -386,8 +396,10 @@ public class DaonExecutor extends OpenIDConnectExecutor {
                             .getTenantUserRealm(tenantId)
                             .getUserStoreManager();
             if (usm instanceof UniqueIDUserStoreManager) {
-                ((UniqueIDUserStoreManager) usm).setUserClaimValueWithID(
-                        userId, ACCOUNT_LOCKED_CLAIM, "true", null);
+                Map<String, String> claimsToLock = new HashMap<>();
+                claimsToLock.put(ACCOUNT_LOCKED_CLAIM, "true");
+                ((UniqueIDUserStoreManager) usm).setUserClaimValuesWithID(
+                        userId, claimsToLock, null);
                 LOG.warn("User account locked due to IDV claim mismatch. User ID: " + userId);
             } else {
                 LOG.warn("UniqueIDUserStoreManager not available; account not locked for user: " + userId);
@@ -451,6 +463,9 @@ public class DaonExecutor extends OpenIDConnectExecutor {
             Map<String, String> extractedClaims,
             Map<String, String> claimMappings) {
 
+        String combinedName = extractedClaims.get(
+                DaonAuthenticatorConstants.CLAIM_DIALECT_URI + "/family_name_and_given_name");
+
         for (String wso2Uri : claimMappings.keySet()) {
             Object profileClaimObj = flowUser.getClaim(wso2Uri);
             if (profileClaimObj == null) {
@@ -461,18 +476,25 @@ public class DaonExecutor extends OpenIDConnectExecutor {
                 continue;
             }
             String verifiedValue = extractedClaims.get(wso2Uri);
-            if (verifiedValue == null) {
-                String combinedName = extractedClaims.get(
-                        DaonAuthenticatorConstants.CLAIM_DIALECT_URI + "/family_name_and_given_name");
-                if (combinedName != null && combinedName.toLowerCase().contains(profileValue.toLowerCase())) {
-                    continue;
+            if (verifiedValue != null) {
+                if (!verifiedValue.toLowerCase().contains(profileValue.toLowerCase())) {
+                    LOG.warn("Claim mismatch for URI: " + wso2Uri);
+                    return false;
                 }
-                LOG.warn("No verified value available for claim URI: " + wso2Uri + "; skipping validation.");
-                continue;
+                continue; 
             }
-            if (!verifiedValue.toLowerCase().contains(profileValue.toLowerCase())) {
-                LOG.warn("Claim mismatch for URI: " + wso2Uri);
-                return false;
+            // No direct Daon claim for this URI. For lastname/givenname, require a match against
+            // the combined family_name_and_given_name field; absence or mismatch is a failure.
+            boolean isNameClaim = WSO2_LASTNAME_CLAIM_URI.equals(wso2Uri)
+                    || WSO2_GIVENNAME_CLAIM_URI.equals(wso2Uri);
+            if (isNameClaim) {
+                if (combinedName == null || !combinedName.toLowerCase().contains(profileValue.toLowerCase())) {
+                    LOG.warn("Claim mismatch for URI: " + wso2Uri
+                            + " (no direct Daon value; combined name check failed)");
+                    return false;
+                }
+            } else {
+                LOG.warn("No verified value available for claim URI: " + wso2Uri + "; skipping validation.");
             }
         }
         return true;

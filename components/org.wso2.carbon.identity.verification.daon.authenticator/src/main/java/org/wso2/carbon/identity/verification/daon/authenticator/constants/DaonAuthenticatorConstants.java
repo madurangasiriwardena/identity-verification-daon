@@ -95,6 +95,13 @@ public class DaonAuthenticatorConstants {
 
     public static final String USER_ID_CLAIM = "http://wso2.org/claims/userid";
 
+    // WSO2 standard name claim URIs that may be matched against Daon's combined family_name_and_given_name
+    public static final String WSO2_LASTNAME_CLAIM_URI = "http://wso2.org/claims/lastname";
+    public static final String WSO2_GIVENNAME_CLAIM_URI = "http://wso2.org/claims/givenname";
+
     // IS identity claim used to lock a user account
     public static final String ACCOUNT_LOCKED_CLAIM = "http://wso2.org/claims/identity/accountLocked";
+
+    // Context property key set when IDV claim validation fails (profile vs. Daon-verified values)
+    public static final String DAON_CLAIM_MISMATCH_PROPERTY = "daon_claim_mismatch";
 }
